@@ -265,7 +265,6 @@ data/
 
 # 工作文件 / Working files
 QUESTIONS.md
-CLAUDE.md
 *.claude/
 
 # 本地虚拟环境 / Local virtual environment
