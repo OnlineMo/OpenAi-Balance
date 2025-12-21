@@ -1,0 +1,2365 @@
+{% extends "base.html" %} {% block title %}配置编辑器 - OpenAI Balance{%
+endblock %} {% block head_extra_styles %}
+<style>
+  /* config_editor.html specific styles */
+  /* Animations (already in base.html, but keep fade-in class usage) */
+  .fade-in {
+    animation: fadeIn 0.3s ease forwards;
+  }
+  /* Modal specific styles (already in base.html) */
+  .array-container {
+    max-height: 300px;
+    overflow-y: auto;
+    padding: 1rem; /* p-4 consistency */
+    margin-bottom: 0.5rem; /* mb-2 consistency */
+    background-color: rgba(255, 255, 255, 0.95) !important; /* light theme */
+    border: 1px solid rgba(0, 0, 0, 0.12) !important; /* light gray border */
+    color: #374151 !important; /* gray-700 for light theme */
+    border-radius: 0.5rem; /* rounded-lg consistency */
+  }
+  #API_KEYS_container {
+    /* Keep specific ID styling if needed */
+    max-height: 300px;
+    overflow-y: auto;
+  }
+  .config-section {
+    display: none;
+    /* theming: new background and border for sections */
+    background-color: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(5px);
+    -webkit-backdrop-filter: blur(5px);
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: 0.75rem; /* rounded-xl */
+    padding: 1.5rem; /* p-6 */
+    margin-bottom: 1.5rem; /* mb-6 */
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1),
+      0 2px 4px -1px rgba(0, 0, 0, 0.06); /* shadow-lg */
+  }
+  .config-section.active {
+    display: block;
+    animation: fadeIn 0.3s ease forwards; /* Use base animation */
+  }
+  .provider-config {
+    display: none;
+  }
+  .provider-config.active {
+    display: block;
+  }
+  /* Tailwind Toggle Switch Helper CSS */
+  .toggle-checkbox:checked {
+    @apply: right-0 border-blue-600; /* theming: changed to blue for light theme */
+    right: 0;
+    border-color: #2563eb; /* theming: blue-600 */
+  }
+  .toggle-checkbox:checked + .toggle-label {
+    @apply: bg-blue-600; /* theming: changed to blue for light theme */
+    background-color: #2563eb; /* theming: blue-600 */
+  }
+  .toggle-label {
+    /* theming: style for unchecked state */
+    background-color: rgba(156, 163, 175, 0.3); /* gray-400 */
+  }
+  /* 统一通知样式为黑色半透明，确保与 keys_status 一致 */
+  .notification {
+    background: rgba(0, 0, 0, 0.8) !important;
+    color: #fff !important;
+  }
+
+  /* Theming for input fields - 修复边框重影问题 */
+  .form-input-themed {
+    background-color: rgba(255, 255, 255, 0.95) !important;
+    border: 1px solid rgba(0, 0, 0, 0.12) !important; /* 为独立输入框提供边框 */
+    color: #374151 !important; /* gray-700 */
+    outline: none !important; /* 移除默认outline */
+    box-shadow: none !important; /* 移除默认box-shadow */
+    transition: border-color 0.15s ease-in-out !important;
+  }
+  .form-input-themed::placeholder {
+    color: #9ca3af !important; /* gray-400 */
+  }
+  .form-input-themed:focus {
+    border-color: #3b82f6 !important; /* focus时改变边框颜色 */
+    box-shadow: none !important; /* 移除focus阴影，只保留边框变化 */
+    outline: none !important; /* 确保没有outline */
+  }
+
+  /* 对于在数组容器内的输入框，移除边框 */
+  .array-container .form-input-themed {
+    border: none !important; /* 在数组容器内的输入框移除边框 */
+  }
+
+  .array-container .form-input-themed:focus {
+    border: none !important; /* 确保focus时也没有边框 */
+  }
+
+  /* 为独立的模型选择输入框保留边框 */
+  .flex.items-center .form-input-themed {
+    border: 1px solid rgba(0, 0, 0, 0.12) !important; /* 保留边框 */
+  }
+
+  .flex.items-center .form-input-themed:focus {
+    border-color: #3b82f6 !important; /* focus时改变边框颜色 */
+  }
+
+  /* Theming for select fields - 改进下拉框样式 */
+  .form-select-themed {
+    background-color: rgba(255, 255, 255, 0.95) !important; /* 白色背景 */
+    border: 1px solid rgba(0, 0, 0, 0.12) !important; /* 灰色边框 */
+    color: #374151 !important; /* gray-700 文字颜色 */
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M6 8l4 4 4-4'/%3e%3c/svg%3e") !important; /* 灰色箭头 */
+    appearance: none !important;
+    padding: 0.6rem 2.5rem 0.6rem 0.8rem !important; /* 调整内边距 */
+    background-repeat: no-repeat !important;
+    background-position: right 0.6rem center !important;
+    background-size: 1.5em 1.5em !important;
+    border-radius: 0.5rem !important; /* 圆角 */
+    font-weight: 500 !important; /* 半粗体 */
+    height: auto !important; /* 自动高度 */
+    box-shadow: none !important; /* 移除阴影 */
+    cursor: pointer !important;
+  }
+
+  .form-select-themed:focus {
+    border-color: #3b82f6 !important; /* blue-500 */
+    box-shadow: none !important; /* 移除focus阴影 */
+    outline: none !important;
+  }
+
+  .form-select-themed option {
+    background-color: rgba(
+      255,
+      255,
+      255,
+      0.98
+    ) !important; /* white background */
+    color: #374151 !important; /* gray-700 */
+    padding: 8px !important;
+  }
+
+  /* 日志级别样式 - 浅色主题统一设计 */
+  #LOG_LEVEL {
+    font-weight: 600 !important;
+  }
+
+  /* 统一的日志级别选项样式 - 使用浅色主题 */
+  #LOG_LEVEL option[value="DEBUG"] {
+    background-color: rgba(255, 255, 255, 0.98) !important; /* 白色背景 */
+    color: #374151 !important; /* gray-700 深灰色文字 */
+  }
+
+  #LOG_LEVEL option[value="INFO"] {
+    background-color: rgba(
+      249,
+      250,
+      251,
+      0.98
+    ) !important; /* gray-50 浅灰背景 */
+    color: #374151 !important; /* gray-700 深灰色文字 */
+  }
+
+  #LOG_LEVEL option[value="WARNING"] {
+    background-color: rgba(
+      243,
+      244,
+      246,
+      0.98
+    ) !important; /* gray-100 稍深灰背景 */
+    color: #374151 !important; /* gray-700 深灰色文字 */
+  }
+
+  #LOG_LEVEL option[value="ERROR"] {
+    background-color: rgba(
+      229,
+      231,
+      235,
+      0.98
+    ) !important; /* gray-200 中灰背景 */
+    color: #374151 !important; /* gray-700 深灰色文字 */
+  }
+
+  #LOG_LEVEL option[value="CRITICAL"] {
+    background-color: rgba(
+      209,
+      213,
+      219,
+      0.98
+    ) !important; /* gray-300 深灰背景 */
+    color: #374151 !important; /* gray-700 深灰色文字 */
+  }
+
+  /* 思考模型预算映射样式 */
+  .map-item {
+    background-color: rgba(60, 40, 130, 0.2) !important;
+    border-radius: 0.5rem !important;
+    padding: 0.5rem !important;
+    border: 1px solid rgba(167, 139, 250, 0.3) !important;
+    transition: all 0.2s ease-in-out !important;
+  }
+
+  .map-item:hover {
+    background-color: rgba(60, 40, 130, 0.3) !important;
+    border-color: rgba(167, 139, 250, 0.5) !important;
+  }
+
+  .map-key-input {
+    background-color: rgba(255, 255, 255, 0.95) !important;
+    border: 1px solid rgba(0, 0, 0, 0.12) !important;
+    color: #374151 !important; /* gray-700 */
+    font-weight: 500 !important;
+    border-radius: 0.375rem !important;
+  }
+
+  .map-value-input {
+    background-color: rgba(255, 255, 255, 0.95) !important;
+    border: 1px solid rgba(0, 0, 0, 0.12) !important;
+    color: #374151 !important; /* gray-700 */
+    font-weight: 600 !important;
+    border-radius: 0.375rem !important;
+    box-shadow: none !important;
+    transition: all 0.2s !important;
+  }
+
+  .map-value-input:focus {
+    background-color: rgba(255, 255, 255, 1) !important;
+    border-color: #3b82f6 !important; /* blue-500 */
+    box-shadow: none !important; /* 移除focus阴影 */
+    outline: none !important;
+  }
+
+  /* 警告文字样式 */
+  .warning-text {
+    color: #f87171 !important; /* red-400 */
+    font-weight: 600 !important;
+    background-color: rgba(248, 113, 113, 0.15) !important;
+    padding: 0.5rem 0.75rem !important;
+    border-radius: 0.375rem !important;
+    border-left: 3px solid #ef4444 !important; /* red-500 */
+    display: flex !important;
+    align-items: center !important;
+    margin-top: 0.5rem !important;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1) !important;
+  }
+
+  .warning-text i {
+    margin-right: 0.5rem !important;
+    color: #ef4444 !important; /* red-500 */
+  }
+
+  /* 令牌生成按钮样式 */
+  .generate-btn {
+    background-color: rgba(59, 130, 246, 0.1) !important; /* blue-500 light */
+    color: #3b82f6 !important; /* blue-500 */
+    border: 1px solid rgba(59, 130, 246, 0.3) !important;
+    border-left: none !important;
+    transition: all 0.2s ease !important;
+  }
+
+  .generate-btn:hover {
+    background-color: rgba(
+      59,
+      130,
+      246,
+      0.2
+    ) !important; /* blue-500 more opaque */
+    color: #1d4ed8 !important; /* blue-700 */
+    box-shadow: 0 0 8px rgba(59, 130, 246, 0.3) !important;
+  }
+
+  .generate-btn:focus {
+    outline: none !important;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5) !important;
+  }
+
+  /* 导航链接悬停样式 - 优化以避免遮挡内容 */
+  .nav-link {
+    transition: all 0.2s ease-in-out;
+    position: relative;
+    z-index: 1; /* 确保不会遮挡重要内容 */
+  }
+
+  .nav-link:hover {
+    background-color: rgba(59, 130, 246, 0.1) !important; /* blue-500 light */
+    transform: scale(1.02); /* 使用缩放代替向上移动 */
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15); /* 增强阴影效果 */
+  }
+
+  /* 导航按钮容器样式 - 为悬停效果预留空间 */
+  .nav-buttons-container {
+    padding-top: 0.5rem; /* 为悬停效果预留上方空间 */
+    padding-bottom: 0.75rem; /* 为悬停效果预留下方空间 */
+  }
+
+  /* 主导航按钮的优化悬停效果 */
+  .main-nav-btn:hover {
+    transform: scale(1.02) !important; /* 使用缩放代替向上移动 */
+    box-shadow: 0 8px 16px rgba(59, 130, 246, 0.3) !important; /* 蓝色阴影 */
+  }
+
+  /* 操作按钮的优化悬停效果 */
+  .action-btn {
+    position: relative;
+    z-index: 1;
+  }
+
+  .action-btn:hover {
+    transform: scale(1.02) !important; /* 使用缩放代替向上移动 */
+  }
+
+  .action-btn:hover#saveBtn {
+    box-shadow: 0 8px 20px rgba(59, 130, 246, 0.4) !important; /* 蓝色阴影 */
+  }
+
+  .action-btn:hover#resetBtn {
+    box-shadow: 0 8px 20px rgba(107, 114, 128, 0.4) !important; /* 灰色阴影 */
+  }
+
+  /* 刷新按钮样式 - 与监控面板页面保持一致 */
+  .bg-white.bg-opacity-20 {
+    background-color: rgba(255, 255, 255, 0.9) !important;
+    color: #3b82f6 !important; /* blue-500 - 与监控面板一致 */
+  }
+
+  .bg-white.bg-opacity-20:hover {
+    background-color: rgba(255, 255, 255, 1) !important;
+    color: #2563eb !important; /* blue-600 - 悬停时稍深 */
+  }
+
+  /* General label and small text theming for light theme */
+  label {
+    color: #374151 !important; /* Dark gray for labels in light theme */
+    font-weight: 600; /* semibold */
+  }
+  small {
+    color: #6b7280 !important; /* Medium gray for small text */
+  }
+
+  /* Override all violet/purple buttons to light blue */
+  .bg-violet-600,
+  button.bg-violet-600 {
+    background-color: #3b82f6 !important; /* blue-500 - light blue */
+  }
+
+  .bg-violet-600:hover,
+  button.bg-violet-600:hover,
+  .hover\\:bg-violet-700:hover {
+    background-color: #2563eb !important; /* blue-600 - darker light blue */
+  }
+
+  /* Override blue buttons to light blue */
+  .bg-blue-600,
+  button.bg-blue-600 {
+    background-color: #3b82f6 !important; /* blue-500 - light blue */
+  }
+
+  .bg-blue-600:hover,
+  button.bg-blue-600:hover,
+  .hover\\:bg-blue-700:hover {
+    background-color: #2563eb !important; /* blue-600 - darker light blue */
+  }
+
+  /* Override red buttons to bright light red */
+  .bg-red-600,
+  button.bg-red-600,
+  .bg-red-700,
+  button.bg-red-700,
+  .bg-red-800,
+  button.bg-red-800 {
+    background-color: #f87171 !important; /* red-400 - bright light red */
+  }
+
+  .bg-red-600:hover,
+  button.bg-red-600:hover,
+  .bg-red-700:hover,
+  button.bg-red-700:hover,
+  .bg-red-800:hover,
+  button.bg-red-800:hover,
+  .hover\\:bg-red-700:hover,
+  .hover\\:bg-red-800:hover {
+    background-color: #ef4444 !important; /* red-500 - darker bright light red */
+  }
+
+  /* Update section headings */
+  .config-section h2 {
+    color: #1f2937 !important; /* gray-800 */
+    border-color: #d1d5db !important; /* gray-300 */
+  }
+
+  .config-section h2 i {
+    color: #3b82f6 !important; /* blue-500 */
+  }
+
+  /* Update tab button active state - 增强选中态样式，提高优先级 */
+  button.tab-btn.active {
+    background-color: #3b82f6 !important; /* blue-500 */
+    color: #ffffff !important; /* 确保白色文字 */
+    box-shadow: 0 4px 12px -2px rgba(59, 130, 246, 0.4),
+      0 2px 6px -1px rgba(59, 130, 246, 0.2) !important; /* 蓝色阴影 */
+    transform: translateY(-2px) !important; /* 更明显的上移效果 */
+    border: 2px solid #2563eb !important; /* blue-600 边框 */
+    font-weight: 600 !important; /* 加粗字体 */
+  }
+
+  /* Ensure inactive tabs have proper styling - 增强未选中态样式，提高优先级 */
+  button.tab-btn:not(.active) {
+    background-color: #f8fafc !important; /* slate-50 更浅的背景 */
+    color: #64748b !important; /* slate-500 更明显的灰色文字 */
+    border: 2px solid #e2e8f0 !important; /* slate-200 边框 */
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1) !important; /* 轻微阴影 */
+    font-weight: 500 !important; /* 中等字体粗细 */
+  }
+
+  button.tab-btn:not(.active):hover {
+    background-color: #f1f5f9 !important; /* slate-100 */
+    color: #475569 !important; /* slate-600 更深的文字颜色 */
+    transform: translateY(-1px) !important;
+    border-color: #cbd5e1 !important; /* slate-300 */
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1) !important;
+  }
+
+  /* Add transition for smooth state changes - 提高优先级 */
+  button.tab-btn {
+    transition: all 0.2s ease-in-out !important;
+    cursor: pointer !important;
+    /* 确保基础样式不被Tailwind覆盖 */
+    padding: 0.5rem 1.25rem !important; /* px-5 py-2 */
+    border-radius: 9999px !important; /* rounded-full */
+    font-size: 0.875rem !important; /* text-sm */
+    font-weight: 500 !important; /* font-medium */
+  }
+
+  /* 额外的高优先级规则确保样式生效 */
+  .flex.justify-center.mb-6.flex-wrap.gap-2 button.tab-btn.active {
+    background-color: #3b82f6 !important;
+    color: #ffffff !important;
+    border: 2px solid #2563eb !important;
+    box-shadow: 0 4px 12px -2px rgba(59, 130, 246, 0.4),
+      0 2px 6px -1px rgba(59, 130, 246, 0.2) !important;
+    transform: translateY(-2px) !important;
+    font-weight: 600 !important;
+  }
+
+  .flex.justify-center.mb-6.flex-wrap.gap-2 button.tab-btn:not(.active) {
+    background-color: #f8fafc !important;
+    color: #64748b !important;
+    border: 2px solid #e2e8f0 !important;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1) !important;
+    font-weight: 500 !important;
+    transform: none !important;
+  }
+
+  /* Fix all modal backgrounds - comprehensive override */
+  .modal .w-full[style*="background-color: rgba(70, 50, 150"],
+  .modal .w-full.max-w-lg[style*="background-color: rgba(70, 50, 150"],
+  .modal .w-full.max-w-md[style*="background-color: rgba(70, 50, 150"] {
+    background-color: rgba(255, 255, 255, 0.98) !important;
+    color: #374151 !important; /* gray-700 */
+    border-color: rgba(0, 0, 0, 0.08) !important;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1),
+      0 10px 10px -5px rgba(0, 0, 0, 0.04) !important;
+  }
+
+  /* Fix modal titles */
+  .modal h2.text-gray-800 {
+    color: #1f2937 !important; /* gray-800 */
+    font-weight: 600 !important;
+  }
+
+  /* Fix modal close buttons */
+  .modal .text-gray-300 {
+    color: #6b7280 !important; /* gray-500 */
+  }
+
+  .modal .text-gray-300:hover {
+    color: #374151 !important; /* gray-700 */
+  }
+
+  /* Fix modal body text */
+  .modal p,
+  .modal label,
+  .modal span {
+    color: #374151 !important; /* gray-700 */
+  }
+
+  /* Fix modal textarea and input styling */
+  .modal textarea,
+  .modal input {
+    background-color: rgba(255, 255, 255, 0.95) !important;
+    color: #374151 !important; /* gray-700 */
+    border: 1px solid rgba(0, 0, 0, 0.12) !important;
+  }
+
+  .modal textarea:focus,
+  .modal input:focus {
+    border-color: #3b82f6 !important; /* blue-500 */
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1) !important;
+  }
+
+  /* Fix modal button styling */
+  .modal .bg-violet-600,
+  .modal button.bg-violet-600 {
+    background-color: #3b82f6 !important; /* blue-500 - light blue */
+    color: #ffffff !important;
+    border: 1px solid #2563eb !important; /* blue-600 */
+  }
+
+  .modal .bg-violet-600:hover,
+  .modal button.bg-violet-600:hover {
+    background-color: #2563eb !important; /* blue-600 - darker light blue */
+    transform: translateY(-1px) !important;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1) !important;
+  }
+
+  /* Fix modal blue button styling */
+  .modal .bg-blue-500,
+  .modal button.bg-blue-500,
+  .modal .bg-blue-600,
+  .modal button.bg-blue-600,
+  .modal .bg-blue-700,
+  .modal button.bg-blue-700 {
+    background-color: #3b82f6 !important; /* blue-500 - light blue */
+    color: #ffffff !important;
+    border: 1px solid #2563eb !important; /* blue-600 */
+  }
+
+  .modal .bg-blue-500:hover,
+  .modal button.bg-blue-500:hover,
+  .modal .bg-blue-600:hover,
+  .modal button.bg-blue-600:hover,
+  .modal .bg-blue-700:hover,
+  .modal button.bg-blue-700:hover {
+    background-color: #2563eb !important; /* blue-600 - darker light blue */
+    transform: translateY(-1px) !important;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1) !important;
+  }
+
+  /* Fix modal cancel/secondary buttons */
+  .modal .bg-gray-500,
+  .modal button.bg-gray-500,
+  .modal .bg-gray-600,
+  .modal button.bg-gray-600 {
+    background-color: #e5e7eb !important; /* gray-200 - light gray */
+    color: #374151 !important; /* gray-700 - dark text for contrast */
+    border: 1px solid #d1d5db !important; /* gray-300 */
+  }
+
+  .modal .bg-gray-500:hover,
+  .modal button.bg-gray-500:hover,
+  .modal .bg-gray-600:hover,
+  .modal button.bg-gray-600:hover {
+    background-color: #d1d5db !important; /* gray-300 - darker light gray */
+    color: #374151 !important; /* gray-700 - dark text for contrast */
+    transform: translateY(-1px) !important;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1) !important;
+  }
+
+  /* Fix modal red/danger buttons */
+  .modal .bg-red-500,
+  .modal button.bg-red-500,
+  .modal .bg-red-600,
+  .modal button.bg-red-600,
+  .modal .bg-red-700,
+  .modal button.bg-red-700 {
+    background-color: #f87171 !important; /* red-400 - bright light red */
+    color: #ffffff !important;
+    border: 1px solid #ef4444 !important; /* red-500 */
+  }
+
+  .modal .bg-red-500:hover,
+  .modal button.bg-red-500:hover,
+  .modal .bg-red-600:hover,
+  .modal button.bg-red-600:hover,
+  .modal .bg-red-700:hover,
+  .modal button.bg-red-700:hover {
+    background-color: #ef4444 !important; /* red-500 - darker bright light red */
+    transform: translateY(-1px) !important;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1) !important;
+  }
+
+  /* Fix all container backgrounds with purple */
+  [style*="background-color: rgba(255, 255, 255, 0.05)"],
+  [style*="background-color: rgba(80, 60, 160"],
+  [style*="background-color: rgba(70, 50, 150"],
+  [style*="background-color: rgba(60, 40, 130"],
+  [style*="background-color: rgba(120, 100, 200"] {
+    background-color: rgba(255, 255, 255, 0.95) !important;
+    border-color: rgba(0, 0, 0, 0.08) !important;
+    color: #374151 !important;
+  }
+
+  /* Fix map item styling */
+  .map-item {
+    background-color: rgba(249, 250, 251, 0.8) !important; /* gray-50 */
+    border: 1px solid rgba(0, 0, 0, 0.08) !important;
+    color: #374151 !important;
+  }
+
+  .map-item:hover {
+    background-color: rgba(243, 244, 246, 1) !important; /* gray-100 */
+    border-color: rgba(0, 0, 0, 0.12) !important;
+  }
+
+  /* Update model helper buttons */
+  .model-helper-trigger-btn {
+    color: #3b82f6 !important; /* blue-500 */
+    background-color: rgba(59, 130, 246, 0.1) !important;
+  }
+
+  .model-helper-trigger-btn:hover {
+    background-color: rgba(59, 130, 246, 0.2) !important;
+    color: #1d4ed8 !important; /* blue-700 */
+  }
+
+  /* Comprehensive button text color fixes */
+  .bg-blue-500,
+  .bg-blue-600,
+  .bg-blue-700,
+  .bg-red-500,
+  .bg-red-600,
+  .bg-red-700,
+  .bg-red-800,
+  .bg-green-500,
+  .bg-green-600,
+  .bg-green-700,
+  .bg-sky-500,
+  .bg-sky-600,
+  .bg-sky-700,
+  .bg-purple-500,
+  .bg-purple-600,
+  .bg-purple-700,
+  .bg-violet-500,
+  .bg-violet-600,
+  .bg-violet-700 {
+    color: #ffffff !important;
+  }
+
+  /* Ensure button children inherit white text */
+  .bg-blue-500 *,
+  .bg-blue-600 *,
+  .bg-blue-700 *,
+  .bg-red-500 *,
+  .bg-red-600 *,
+  .bg-red-700 *,
+  .bg-red-800 *,
+  .bg-green-500 *,
+  .bg-green-600 *,
+  .bg-green-700 *,
+  .bg-sky-500 *,
+  .bg-sky-600 *,
+  .bg-sky-700 *,
+  .bg-purple-500 *,
+  .bg-purple-600 *,
+  .bg-purple-700 *,
+  .bg-violet-500 *,
+  .bg-violet-600 *,
+  .bg-violet-700 * {
+    color: inherit !important;
+  }
+
+  /* Fix page title gradient - comprehensive override */
+  h1.text-transparent,
+  .text-transparent.bg-clip-text,
+  .bg-gradient-to-r.from-violet-400.to-pink-400 {
+    background: none !important;
+    color: #1f2937 !important; /* gray-800 - consistent with other pages */
+    -webkit-background-clip: unset !important;
+    background-clip: unset !important;
+    text-shadow: none !important;
+    font-weight: 800 !important; /* font-extrabold */
+  }
+
+  /* Fix all gradient buttons to use solid blue */
+  .bg-gradient-to-r.from-violet-500.to-pink-500,
+  .bg-gradient-to-r.from-gray-600.to-gray-700 {
+    background: none !important;
+  }
+
+  /* Ensure all violet/purple colors are converted to blue theme */
+  .text-violet-300,
+  .text-violet-400,
+  .text-violet-100 {
+    color: #3b82f6 !important; /* blue-500 */
+  }
+
+  .border-violet-300,
+  .border-violet-400 {
+    border-color: rgba(
+      59,
+      130,
+      246,
+      0.3
+    ) !important; /* blue-500 with opacity */
+  }
+
+  .hover\\:text-violet-400:hover,
+  .hover\\:text-violet-100:hover {
+    color: #2563eb !important; /* blue-600 */
+  }
+
+  .hover\\:bg-violet-700:hover {
+    background-color: #2563eb !important; /* blue-600 */
+  }
+
+  /* Fix focus states for form elements */
+  .focus-within\\:border-violet-400:focus-within,
+  .focus-within\\:ring-violet-400:focus-within {
+    border-color: #3b82f6 !important; /* blue-500 */
+    box-shadow: none !important; /* 移除focus阴影 */
+  }
+
+  /* Fix focus-within border color for auth token wrapper */
+  .focus-within\\:border-blue-500:focus-within {
+    border-color: #3b82f6 !important; /* blue-500 */
+  }
+
+  /* More specific selector for auth token wrapper */
+  div.flex.items-center.flex-grow.border.rounded-md.focus-within\\:border-blue-500:focus-within {
+    border-color: #3b82f6 !important; /* blue-500 */
+  }
+
+  /* Even more specific selector targeting the exact auth token wrapper */
+  .mb-6
+    .flex.items-center
+    div.flex.items-center.flex-grow.border.rounded-md:focus-within {
+    border-color: #3b82f6 !important; /* blue-500 */
+  }
+
+  /* Fix primary color focus states - convert purple to blue */
+  .focus\\:border-primary-500:focus,
+  .focus\\:border-primary-600:focus {
+    border-color: #3b82f6 !important; /* blue-500 */
+  }
+
+  .focus\\:ring-primary-200:focus,
+  .focus\\:ring-primary-300:focus {
+    --tw-ring-color: rgba(
+      59,
+      130,
+      246,
+      0.2
+    ) !important; /* blue-500 with opacity */
+  }
+
+  /* Fix select element styling */
+  .form-select-themed {
+    background-color: rgba(255, 255, 255, 0.95) !important;
+    border: 1px solid rgba(0, 0, 0, 0.12) !important;
+    color: #374151 !important; /* gray-700 */
+    outline: none !important;
+    box-shadow: none !important;
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out !important;
+  }
+
+  .form-select-themed:focus {
+    border-color: #3b82f6 !important; /* blue-500 */
+    box-shadow: none !important; /* 移除focus阴影 */
+    outline: none !important;
+  }
+
+  /* Override any remaining primary colors */
+  .text-primary-600,
+  .text-primary-500 {
+    color: #3b82f6 !important; /* blue-500 */
+  }
+
+  .bg-primary-600,
+  .bg-primary-500 {
+    background-color: #3b82f6 !important; /* blue-500 */
+  }
+
+  .bg-primary-700:hover,
+  .hover\\:bg-primary-700:hover {
+    background-color: #2563eb !important; /* blue-600 */
+  }
+
+  /* Fix dynamic input wrapper focus states - convert violet to blue */
+  .focus-within\\:border-violet-400:focus-within,
+  .focus-within\\:ring-violet-400:focus-within {
+    border-color: #3b82f6 !important; /* blue-500 */
+    box-shadow: none !important; /* 移除focus阴影 */
+  }
+
+  /* Ensure all array input wrappers use blue theme */
+  .array-container .flex.items-center.flex-grow.rounded-md {
+    border-color: rgba(0, 0, 0, 0.12) !important;
+  }
+
+  .array-container .flex.items-center.flex-grow.rounded-md:focus-within {
+    border-color: #3b82f6 !important; /* blue-500 */
+    box-shadow: none !important; /* 移除focus阴影 */
+  }
+</style>
+{% endblock %} {% block content %}
+<div class="container max-w-6xl mx-auto px-4">
+  <div
+    class="rounded-2xl shadow-xl p-6 md:p-8"
+    style="
+      background-color: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1px solid rgba(0, 0, 0, 0.08);
+    "
+  >
+    <button
+      class="absolute top-6 right-6 bg-white bg-opacity-20 hover:bg-opacity-30 rounded-full w-8 h-8 flex items-center justify-center text-primary-600 transition-all duration-300"
+      onclick="refreshPage(this)"
+      title="手动刷新"
+    >
+      <i class="fas fa-sync-alt"></i>
+    </button>
+
+    <h1 class="text-3xl font-extrabold text-center text-gray-800 mb-4">
+      <img
+        src="{{ static_url('icons/logo.png') }}"
+        alt="OpenAI Balance Logo"
+        class="h-9 inline-block align-middle mr-2"
+      />
+      OpenAI Balance - 配置编辑
+    </h1>
+
+    <!-- Navigation Tabs -->
+    <div
+      class="nav-buttons-container flex justify-center mb-8 overflow-x-auto gap-2"
+    >
+      <a
+        href="/config"
+        class="main-nav-btn whitespace-nowrap flex items-center justify-center gap-2 px-6 py-3 font-medium rounded-lg shadow-md hover:shadow-lg transition-all duration-200"
+        style="background-color: #3b82f6 !important; color: #ffffff !important"
+      >
+        <i class="fas fa-cog"></i> 配置编辑
+      </a>
+      <a
+        href="/keys"
+        class="nav-link whitespace-nowrap flex items-center justify-center gap-2 px-6 py-3 font-medium rounded-lg text-gray-700 hover:text-gray-900 transition-all duration-200"
+        style="background-color: rgba(229, 231, 235, 0.8)"
+      >
+        <i class="fas fa-tachometer-alt"></i> 监控面板
+      </a>
+      <a
+        href="/logs"
+        class="nav-link whitespace-nowrap flex items-center justify-center gap-2 px-6 py-3 font-medium rounded-lg text-gray-700 hover:text-gray-900 transition-all duration-200"
+        style="background-color: rgba(229, 231, 235, 0.8)"
+      >
+        <i class="fas fa-exclamation-triangle"></i> 错误日志
+      </a>
+    </div>
+
+    <!-- Config Tabs -->
+    <div class="flex justify-center mb-6 flex-wrap gap-2">
+      <button
+        class="tab-btn active px-5 py-2 rounded-full font-medium text-sm transition-all duration-200"
+        data-tab="api"
+        style="
+          background-color: #3b82f6 !important;
+          color: #ffffff !important;
+          border: 2px solid #2563eb !important;
+          box-shadow: 0 4px 12px -2px rgba(59, 130, 246, 0.4),
+            0 2px 6px -1px rgba(59, 130, 246, 0.2) !important;
+          transform: translateY(-2px) !important;
+          font-weight: 600 !important;
+        "
+      >
+        API配置
+      </button>
+      <button
+        class="tab-btn px-5 py-2 rounded-full font-medium text-sm transition-all duration-200"
+        data-tab="providers"
+        style="
+          background-color: #f8fafc !important;
+          color: #64748b !important;
+          border: 2px solid #e2e8f0 !important;
+          box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1) !important;
+          font-weight: 500 !important;
+        "
+      >
+        提供商配置
+      </button>
+      <button
+        class="tab-btn px-5 py-2 rounded-full font-medium text-sm transition-all duration-200"
+        data-tab="model"
+        style="
+          background-color: #f8fafc !important;
+          color: #64748b !important;
+          border: 2px solid #e2e8f0 !important;
+          box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1) !important;
+          font-weight: 500 !important;
+        "
+      >
+        模型配置
+      </button>
+      
+      
+      
+      <button
+        class="tab-btn px-5 py-2 rounded-full font-medium text-sm transition-all duration-200"
+        data-tab="scheduler"
+        style="
+          background-color: #f8fafc !important;
+          color: #64748b !important;
+          border: 2px solid #e2e8f0 !important;
+          box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1) !important;
+          font-weight: 500 !important;
+        "
+      >
+        定时任务
+      </button>
+      <button
+        class="tab-btn px-5 py-2 rounded-full font-medium text-sm transition-all duration-200"
+        data-tab="logging"
+        style="
+          background-color: #f8fafc !important;
+          color: #64748b !important;
+          border: 2px solid #e2e8f0 !important;
+          box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1) !important;
+          font-weight: 500 !important;
+        "
+      >
+        日志配置
+      </button>
+    </div>
+
+    <!-- Save Status Banner (Removed - using notification component now) -->
+
+    <!-- Configuration Form -->
+    <form id="configForm" class="mt-6">
+      <!-- API 相关配置 -->
+      <div class="config-section active" id="api-section">
+        <h2
+          class="text-xl font-bold mb-6 pb-3 border-b flex items-center gap-2 text-gray-800 border-gray-300"
+        >
+          <i class="fas fa-key text-blue-500"></i> API相关配置
+        </h2>
+
+        <!-- API密钥列表 - 按提供商分类 -->
+        <div class="mb-6">
+          <label class="block font-semibold mb-2 text-gray-800"
+            >API密钥列表
+            <i class="fas fa-question-circle text-gray-400 ml-1 cursor-help" title="按提供商分类的 API 密钥列表"></i>
+          </label>
+
+          <!-- 提供商密钥容器 -->
+          <div id="providerKeysContainer" class="space-y-4">
+            <!-- 默认提供商密钥 - 当配置了自定义提供商时隐藏 -->
+            <div id="defaultProviderKeysSection" class="provider-keys-section border rounded-lg p-4 bg-gray-50" data-provider="default">
+              <div class="flex items-center justify-between mb-3">
+                <h3 class="font-semibold text-gray-700 flex items-center gap-2">
+                  <i class="fas fa-server text-blue-500"></i>
+                  <span>默认 API 密钥</span>
+                  <span id="defaultKeysCount" class="text-sm text-gray-500">(0 个)</span>
+                </h3>
+                <div class="flex gap-2">
+                  <button
+                    type="button"
+                    class="text-sm bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded flex items-center gap-1"
+                    onclick="openAddKeyModal('default')"
+                  >
+                    <i class="fas fa-plus"></i> 添加
+                  </button>
+                </div>
+              </div>
+              <div class="mb-2">
+                <input
+                  type="search"
+                  id="apiKeySearchInput"
+                  placeholder="搜索密钥..."
+                  class="w-full px-3 py-2 rounded-lg form-input-themed text-sm"
+                />
+              </div>
+              <div class="array-container" id="API_KEYS_container" style="max-height: 200px;">
+                <!-- 默认密钥将在这里动态添加 -->
+              </div>
+              <!-- API密钥分页控件 -->
+              <div id="apiKeyPagination" class="flex items-center justify-between mt-2" style="display: none;">
+                <div class="flex items-center gap-2">
+                  <button
+                    type="button"
+                    id="apiKeyPrevBtn"
+                    class="px-2 py-1 text-sm rounded bg-blue-500 text-white hover:bg-blue-600 cursor-pointer"
+                  >
+                    <i class="fas fa-chevron-left"></i>
+                  </button>
+                  <span id="apiKeyPageInfo" class="text-xs text-gray-600">1/1</span>
+                  <button
+                    type="button"
+                    id="apiKeyNextBtn"
+                    class="px-2 py-1 text-sm rounded bg-blue-500 text-white hover:bg-blue-600 cursor-pointer"
+                  >
+                    <i class="fas fa-chevron-right"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- 提供商密钥将在这里动态添加 -->
+            <div id="customProviderKeysContainer"></div>
+          </div>
+
+          <!-- 全局操作按钮 -->
+          <div class="flex justify-end gap-2 mt-4">
+            <button
+              type="button"
+              class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium transition-all duration-200 flex items-center gap-2"
+              id="bulkDeleteApiKeyBtn"
+            >
+              <i class="fas fa-trash-alt"></i> 批量删除
+            </button>
+            <button
+              type="button"
+              class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-all duration-200 flex items-center gap-2"
+              id="addApiKeyBtn"
+            >
+              <i class="fas fa-plus"></i> 添加密钥
+            </button>
+          </div>
+        </div>
+
+        <!-- 允许的令牌列表 -->
+        <div class="mb-6">
+          <label
+            for="ALLOWED_TOKENS"
+            class="block font-semibold mb-2 text-gray-800"
+            >允许的令牌列表
+            <i class="fas fa-question-circle text-gray-400 ml-1 cursor-help" title="允许访问API的令牌列表"></i>
+          </label>
+          <div class="array-container" id="ALLOWED_TOKENS_container">
+            <!-- 数组项将在这里动态添加 -->
+          </div>
+          <div class="flex justify-end">
+            <button
+              type="button"
+              class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-all duration-200 flex items-center gap-2"
+              onclick="addArrayItem('ALLOWED_TOKENS')"
+            >
+              <i class="fas fa-plus"></i> 添加令牌
+            </button>
+          </div>
+        </div>
+
+        <!-- 认证令牌 -->
+        <div class="mb-6">
+          <label for="AUTH_TOKEN" class="block font-semibold mb-2 text-gray-800"
+            >认证令牌
+            <i class="fas fa-question-circle text-gray-400 ml-1 cursor-help" title="用于API认证的令牌"></i>
+          </label>
+          <div class="flex items-center">
+            <div
+              class="flex items-center flex-grow border rounded-md focus-within:border-blue-500"
+              style="border-color: rgba(0, 0, 0, 0.12)"
+            >
+              <input
+                type="text"
+                id="AUTH_TOKEN"
+                name="AUTH_TOKEN"
+                placeholder="默认使用ALLOWED_TOKENS中的第一个"
+                class="array-input flex-grow px-3 py-2 rounded-l-md sensitive-input form-input-themed"
+              />
+              <button
+                type="button"
+                id="generateAuthTokenBtn"
+                class="generate-btn px-2 py-2 text-gray-400 hover:text-blue-500 focus:outline-none rounded-r-md hover:bg-gray-600 transition-colors"
+                title="生成随机令牌"
+                style="background-color: rgba(59, 130, 246, 0.1)"
+              >
+                <i class="fas fa-dice"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 默认提供商配置 - 当配置了自定义提供商时隐藏 -->
+        <div id="defaultProviderConfigSection">
+          <!-- API基础URL -->
+          <div class="mb-6">
+            <label for="BASE_URL" class="block font-semibold mb-2 text-gray-700"
+              >默认 API 基础 URL
+              <i class="fas fa-question-circle text-gray-400 ml-1 cursor-help" title="当未配置自定义提供商时使用的默认 API 基础 URL。如果配置了提供商，此设置将被忽略。"></i>
+            </label>
+            <input
+              type="text"
+              id="BASE_URL"
+              name="BASE_URL"
+              placeholder="https://api.openai.com/v1"
+              class="w-full px-4 py-3 rounded-lg form-input-themed"
+            />
+            <small class="text-gray-500">当未配置自定义提供商时使用。如果已配置提供商，请在"提供商配置"中设置各提供商的 Base URL。</small>
+          </div>
+
+          <!-- 自定义Headers -->
+          <div class="mb-6">
+            <label
+              for="CUSTOM_HEADERS"
+              class="block font-semibold mb-2 text-gray-700"
+              >自定义Headers
+              <i class="fas fa-question-circle text-gray-400 ml-1 cursor-help" title="在这里添加的键值对将被添加到所有出站API请求的Header中"></i>
+            </label>
+            <div
+              class="bg-white rounded-lg border border-gray-200 p-4 mb-2 space-y-3"
+              id="CUSTOM_HEADERS_container"
+              style="
+                background-color: rgba(255, 255, 255, 0.95);
+                border: 1px solid rgba(0, 0, 0, 0.12);
+                color: #374151;
+              "
+            >
+              <!-- 键值对将在这里动态添加 -->
+              <div class="text-gray-500 text-sm italic">
+                添加自定义请求头，例如 X-Api-Key: your-key
+              </div>
+            </div>
+            <div class="flex justify-end">
+              <button
+                type="button"
+                class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-all duration-200 flex items-center gap-2"
+                id="addCustomHeaderBtn"
+              >
+                <i class="fas fa-plus"></i> 添加Header
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 最大失败次数 -->
+        <div class="mb-6">
+          <label
+            for="MAX_FAILURES"
+            class="block font-semibold mb-2 text-gray-700"
+            >最大失败次数
+            <i class="fas fa-question-circle text-gray-400 ml-1 cursor-help" title="API密钥失败后标记为无效的次数"></i>
+          </label>
+          <input
+            type="number"
+            id="MAX_FAILURES"
+            name="MAX_FAILURES"
+            min="1"
+            max="100"
+            class="w-full px-4 py-3 rounded-lg form-input-themed"
+          />
+        </div>
+
+        <!-- 请求超时时间 -->
+        <div class="mb-6">
+          <label for="TIME_OUT" class="block font-semibold mb-2 text-gray-700"
+            >请求超时时间（秒）
+            <i class="fas fa-question-circle text-gray-400 ml-1 cursor-help" title="API请求的超时时间"></i>
+          </label>
+          <input
+            type="number"
+            id="TIME_OUT"
+            name="TIME_OUT"
+            min="1"
+            max="600"
+            class="w-full px-4 py-3 rounded-lg form-input-themed"
+          />
+        </div>
+
+        <!-- 最大重试次数 -->
+        <div class="mb-6">
+          <label
+            for="MAX_RETRIES"
+            class="block font-semibold mb-2 text-gray-700"
+            >最大重试次数
+            <i class="fas fa-question-circle text-gray-400 ml-1 cursor-help" title="API请求失败后的最大重试次数"></i>
+          </label>
+          <input
+            type="number"
+            id="MAX_RETRIES"
+            name="MAX_RETRIES"
+            min="0"
+            max="10"
+            class="w-full px-4 py-3 rounded-lg form-input-themed"
+          />
+        </div>
+        <!-- 代理服务器列表 -->
+        <div class="mb-6">
+          <label for="PROXIES" class="block font-semibold mb-2 text-gray-700"
+            >代理服务器列表
+            <i class="fas fa-question-circle text-gray-400 ml-1 cursor-help" title="代理服务器列表，支持 http 和 socks5 格式，例如: http://user:pass@host:port 或 socks5://host:port。点击按钮可批量添加或删除"></i>
+          </label>
+          <div class="array-container" id="PROXIES_container">
+            <!-- 代理项将在这里动态添加 -->
+          </div>
+          <div class="flex justify-end gap-2">
+            <button
+              type="button"
+              class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium transition-all duration-200 flex items-center gap-2"
+              id="bulkDeleteProxyBtn"
+            >
+              <i class="fas fa-trash-alt"></i> 删除代理
+            </button>
+            <button
+              type="button"
+              class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition-all duration-200 flex items-center gap-2"
+              id="checkAllProxiesBtn"
+            >
+              <i class="fas fa-globe"></i> 检测所有代理
+            </button>
+            <button
+              type="button"
+              class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-all duration-200 flex items-center gap-2"
+              id="addProxyBtn"
+            >
+              <i class="fas fa-plus"></i> 添加代理
+            </button>
+          </div>
+        </div>
+        <!-- 代理使用策略 -->
+        <div class="mb-6">
+          <div class="flex items-center justify-between">
+            <label
+              for="PROXIES_USE_CONSISTENCY_HASH_BY_API_KEY"
+              class="font-semibold text-gray-700"
+              >是否开启固定代理策略
+              <i class="fas fa-question-circle text-gray-400 ml-1 cursor-help" title="开启后，对于每一个API_KEY将根据算法从代理列表中选取同一个代理IP，防止一个API_KEY同时被多个IP访问，也同时防止了一个IP访问了过多的API_KEY"></i>
+            </label>
+            <div
+              class="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in"
+            >
+              <input
+                type="checkbox"
+                name="PROXIES_USE_CONSISTENCY_HASH_BY_API_KEY"
+                id="PROXIES_USE_CONSISTENCY_HASH_BY_API_KEY"
+                class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer"
+              />
+              <label
+                for="PROXIES_USE_CONSISTENCY_HASH_BY_API_KEY"
+                class="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer"
+              ></label>
+            </div>
+          </div>
+        </div>
+
+        <!-- 代理自动检测配置 -->
+        <div class="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+          <h3 class="font-semibold text-gray-700 mb-4 flex items-center gap-2">
+            <i class="fas fa-sync-alt text-blue-500"></i>
+            代理自动检测
+            <i class="fas fa-question-circle text-gray-400 ml-1 cursor-help" title="启用后，系统将定期检测代理可用性，自动禁用失败的代理并解除与API Key的绑定"></i>
+          </h3>
+
+          <!-- 启用代理自动检测 -->
+          <div class="mb-4">
+            <div class="flex items-center justify-between">
+              <label
+                for="PROXY_AUTO_CHECK_ENABLED"
+                class="font-medium text-gray-600"
+                >启用代理自动检测</label
+              >
+              <div
+                class="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in"
+              >
+                <input
+                  type="checkbox"
+                  name="PROXY_AUTO_CHECK_ENABLED"
+                  id="PROXY_AUTO_CHECK_ENABLED"
+                  class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer"
+                />
+                <label
+                  for="PROXY_AUTO_CHECK_ENABLED"
+                  class="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer"
+                ></label>
+              </div>
+            </div>
+          </div>
+
+          <!-- 检测间隔 -->
+          <div class="mb-4">
+            <label
+              for="PROXY_CHECK_INTERVAL_HOURS"
+              class="block font-medium mb-2 text-gray-600"
+              >检测间隔（小时）</label
+            >
+            <input
+              type="number"
+              name="PROXY_CHECK_INTERVAL_HOURS"
+              id="PROXY_CHECK_INTERVAL_HOURS"
+              step="0.1"
+              min="0.1"
+              max="24"
+              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:border-primary-500 focus:ring focus:ring-primary-200 focus:ring-opacity-50"
+              placeholder="1"
+            />
+            <p class="text-xs text-gray-500 mt-1">支持小数，如 0.5 表示每30分钟检测一次</p>
+          </div>
+
+          <!-- 最大失败次数 -->
+          <div class="mb-4">
+            <label
+              for="PROXY_MAX_FAILURES"
+              class="block font-medium mb-2 text-gray-600"
+              >最大失败次数</label
+            >
+            <input
+              type="number"
+              name="PROXY_MAX_FAILURES"
+              id="PROXY_MAX_FAILURES"
+              min="1"
+              max="10"
+              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:border-primary-500 focus:ring focus:ring-primary-200 focus:ring-opacity-50"
+              placeholder="3"
+            />
+            <p class="text-xs text-gray-500 mt-1">代理连续失败达到此次数后将被暂时禁用</p>
+          </div>
+
+          <!-- 检测目标 URL -->
+          <div class="mb-4">
+            <label
+              for="PROXY_CHECK_URL"
+              class="block font-medium mb-2 text-gray-600"
+              >检测目标 URL</label
+            >
+            <input
+              type="text"
+              name="PROXY_CHECK_URL"
+              id="PROXY_CHECK_URL"
+              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:border-primary-500 focus:ring focus:ring-primary-200 focus:ring-opacity-50"
+              placeholder="https://www.google.com"
+            />
+            <p class="text-xs text-gray-500 mt-1">用于检测代理连通性的目标网址</p>
+          </div>
+
+          <!-- 检测超时时间 -->
+          <div class="mb-2">
+            <label
+              for="PROXY_CHECK_TIMEOUT"
+              class="block font-medium mb-2 text-gray-600"
+              >检测超时时间（秒）</label
+            >
+            <input
+              type="number"
+              name="PROXY_CHECK_TIMEOUT"
+              id="PROXY_CHECK_TIMEOUT"
+              min="1"
+              max="60"
+              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:border-primary-500 focus:ring focus:ring-primary-200 focus:ring-opacity-50"
+              placeholder="10"
+            />
+          </div>
+        </div>
+      </div>
+
+      <!-- 提供商配置 -->
+      <div class="config-section" id="providers-section">
+        <h2
+          class="text-xl font-bold mb-6 pb-3 border-b flex items-center gap-2 text-gray-800 border-gray-300"
+        >
+          <i class="fas fa-server text-blue-500"></i> 提供商配置
+        </h2>
+
+        <!-- 默认提供商选择 -->
+        <div class="mb-6">
+          <label
+            for="DEFAULT_PROVIDER"
+            class="block font-semibold mb-2 text-gray-800"
+            >默认提供商
+            <i class="fas fa-question-circle text-gray-400 ml-1 cursor-help" title="当使用 /v1/* 路径时使用的默认提供商。如果选择 'default' 且配置了自定义提供商，将自动使用第一个启用的提供商。"></i>
+          </label>
+          <select
+            id="DEFAULT_PROVIDER"
+            name="DEFAULT_PROVIDER"
+            class="w-full px-4 py-3 rounded-lg form-select-themed"
+          >
+            <option value="default">default (自动使用第一个提供商)</option>
+          </select>
+          <small class="text-gray-500">如果选择 "default" 且配置了自定义提供商，将自动使用第一个启用的提供商</small>
+        </div>
+
+        <!-- 提供商列表 -->
+        <div class="mb-6">
+          <label class="block font-semibold mb-2 text-gray-800"
+            >提供商列表
+            <i class="fas fa-question-circle text-gray-400 ml-1 cursor-help" title="配置多个 OpenAI 兼容的上游 API 提供商"></i>
+          </label>
+          <div
+            id="PROVIDERS_container"
+            class="space-y-4"
+          >
+            <!-- 提供商卡片将在这里动态添加 -->
+            <div class="text-gray-500 text-sm italic">
+              点击下方按钮添加提供商配置
+            </div>
+          </div>
+          <div class="flex justify-end mt-4">
+            <button
+              type="button"
+              class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-all duration-200 flex items-center gap-2"
+              id="addProviderBtn"
+            >
+              <i class="fas fa-plus"></i> 添加提供商
+            </button>
+          </div>
+        </div>
+
+        <!-- 使用说明 -->
+        <div class="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+          <h3 class="font-semibold text-blue-800 mb-2">
+            <i class="fas fa-info-circle mr-2"></i>路由规则说明
+          </h3>
+          <ul class="text-sm text-blue-700 space-y-1">
+            <li><code class="bg-blue-100 px-1 rounded">/v1/*</code> - 使用默认提供商</li>
+            <li><code class="bg-blue-100 px-1 rounded">/{provider}/v1/*</code> - 使用指定提供商（如 /deepseek/v1/chat/completions）</li>
+            <li><code class="bg-blue-100 px-1 rounded">/hf/v1/*</code> - HuggingFace 格式，使用默认提供商</li>
+            <li><code class="bg-blue-100 px-1 rounded">/hf/{provider}/v1/*</code> - HuggingFace 格式，使用指定提供商</li>
+            <li><code class="bg-blue-100 px-1 rounded">/openai/v1/*</code> - OpenAI 格式，使用默认提供商</li>
+            <li><code class="bg-blue-100 px-1 rounded">/openai/{provider}/v1/*</code> - OpenAI 格式，使用指定提供商</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- 模型相关配置 -->
+      <div class="config-section" id="model-section">
+        <h2
+          class="text-xl font-bold mb-6 pb-3 border-b flex items-center gap-2 text-gray-800 border-violet-300 border-opacity-30"
+        >
+          <i class="fas fa-robot text-violet-400"></i> 模型相关配置
+        </h2>
+
+        <!-- 默认提供商模型配置 - 当配置了自定义提供商时隐藏 -->
+        <div id="defaultProviderModelSection">
+          <!-- 测试模型 -->
+          <div class="mb-6">
+            <label for="TEST_MODEL" class="block font-semibold mb-2 text-gray-700"
+              >默认测试模型
+              <i class="fas fa-question-circle text-gray-400 ml-1 cursor-help" title="用于测试默认提供商API密钥的模型。自定义提供商请在提供商配置中设置各自的测试模型。"></i>
+            </label>
+            <div class="flex items-center gap-2">
+              <input
+                type="text"
+                id="TEST_MODEL"
+                name="TEST_MODEL"
+                placeholder="gpt-4o-mini"
+                class="flex-grow px-4 py-3 rounded-lg form-input-themed"
+              />
+              <button
+                type="button"
+                title="选择模型"
+                class="model-helper-trigger-btn p-2 rounded-md text-violet-300 hover:bg-violet-700 transition-colors"
+                data-target-input-id="TEST_MODEL"
+              >
+                <i class="fas fa-list-ul"></i>
+              </button>
+            </div>
+            <p class="text-xs text-gray-500 mt-1">此配置仅用于默认提供商。自定义提供商请在"提供商配置"中设置各自的测试模型。</p>
+          </div>
+
+          <!-- 过滤模型列表 -->
+          <div class="mb-6">
+            <label
+              for="FILTERED_MODELS"
+              class="block font-semibold mb-2 text-gray-700"
+              >过滤模型列表
+              <i class="fas fa-question-circle text-gray-400 ml-1 cursor-help" title="需要过滤的模型列表"></i>
+            </label>
+            <div class="array-container" id="FILTERED_MODELS_container">
+              <!-- 数组项将在这里动态添加 -->
+            </div>
+            <div class="flex justify-end gap-2 mt-2">
+              <button
+                type="button"
+                title="从列表选择模型添加到下方"
+                class="model-helper-trigger-btn p-2 rounded-md text-violet-300 hover:bg-violet-700 transition-colors"
+                data-target-array-key="FILTERED_MODELS"
+              >
+                <i class="fas fa-list-ul"></i>
+              </button>
+              <button
+                type="button"
+                class="bg-violet-600 hover:bg-violet-700 text-white px-4 py-2 rounded-lg font-medium transition-all duration-200 flex items-center gap-2"
+                onclick="addArrayItem('FILTERED_MODELS')"
+              >
+                <i class="fas fa-plus"></i> 添加模型
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 启用代码执行工具 -->
+        <div class="mb-6">
+          <div class="flex items-center justify-between">
+            <label
+              for="TOOLS_CODE_EXECUTION_ENABLED"
+              class="font-semibold text-gray-700"
+              >启用代码执行工具</label
+            >
+            <div
+              class="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in"
+            >
+              <input
+                type="checkbox"
+                name="TOOLS_CODE_EXECUTION_ENABLED"
+                id="TOOLS_CODE_EXECUTION_ENABLED"
+                class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer"
+              />
+              <label
+                for="TOOLS_CODE_EXECUTION_ENABLED"
+                class="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer"
+              ></label>
+            </div>
+          </div>
+          <div class="warning-text">
+            <i class="fas fa-exclamation-triangle"></i>
+            <span>启用代码执行工具与大多数工具调用冲突，不建议开启</span>
+          </div>
+        </div>
+
+        </div>
+      </div>
+
+      <!-- 定时任务配置 -->
+      <!-- 定时任务配置 -->
+      <div class="config-section" id="scheduler-section">
+        <h2
+          class="text-xl font-bold mb-6 pb-3 border-b flex items-center gap-2 text-gray-800 border-violet-300 border-opacity-30"
+        >
+          <i class="fas fa-clock text-violet-400"></i> 定时任务配置
+        </h2>
+
+        <!-- 检查间隔 -->
+        <div class="mb-6">
+          <label
+            for="CHECK_INTERVAL_HOURS"
+            class="block font-semibold mb-2 text-gray-700"
+            >检查间隔（小时）
+            <i class="fas fa-question-circle text-gray-400 ml-1 cursor-help" title="定时检查密钥状态的间隔时间（单位：小时），设置为0时不进行定时检查"></i>
+          </label>
+          <input
+            type="number"
+            id="CHECK_INTERVAL_HOURS"
+            name="CHECK_INTERVAL_HOURS"
+            min="0"
+            step="1"
+            class="w-full px-4 py-3 rounded-lg form-input-themed"
+          />
+        </div>
+
+      </div>
+
+      <!-- 日志配置 -->
+      <div class="config-section" id="logging-section">
+        <h2
+          class="text-xl font-bold mb-6 pb-3 border-b flex items-center gap-2 text-gray-800 border-violet-300 border-opacity-30"
+        >
+          <i class="fas fa-file-alt text-violet-400"></i> 日志配置
+        </h2>
+
+        <!-- 日志级别 -->
+        <div class="mb-6">
+          <label for="LOG_LEVEL" class="block font-semibold mb-2 text-gray-700"
+            >日志级别
+            <i class="fas fa-question-circle text-gray-400 ml-1 cursor-help" title="设置应用程序的日志记录详细程度"></i>
+          </label>
+          <select
+            id="LOG_LEVEL"
+            name="LOG_LEVEL"
+            class="w-full px-4 py-3 rounded-lg form-select-themed"
+          >
+            <option value="DEBUG">DEBUG</option>
+            <option value="INFO">INFO</option>
+            <option value="WARNING">WARNING</option>
+            <option value="ERROR">ERROR</option>
+            <option value="CRITICAL">CRITICAL</option>
+          </select>
+        </div>
+
+        <!-- 错误日志记录请求体 -->
+        <div class="mb-6">
+          <div class="flex items-center justify-between">
+            <label
+              for="ERROR_LOG_RECORD_REQUEST_BODY"
+              class="font-semibold text-gray-700"
+              >错误日志记录请求体
+              <i class="fas fa-question-circle text-gray-400 ml-1 cursor-help" title="关闭可减少大量磁盘空间占用，默认关闭"></i>
+            </label>
+            <div
+              class="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in"
+            >
+              <input
+                type="checkbox"
+                name="ERROR_LOG_RECORD_REQUEST_BODY"
+                id="ERROR_LOG_RECORD_REQUEST_BODY"
+                class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer"
+              />
+              <label
+                for="ERROR_LOG_RECORD_REQUEST_BODY"
+                class="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer"
+              ></label>
+            </div>
+          </div>
+        </div>
+
+        <!-- 自动删除错误日志 -->
+        <div class="mb-6">
+          <div class="flex items-center justify-between">
+            <label
+              for="AUTO_DELETE_ERROR_LOGS_ENABLED"
+              class="font-semibold text-gray-700"
+              >是否开启自动删除错误日志
+              <i class="fas fa-question-circle text-gray-400 ml-1 cursor-help" title="开启后，将自动删除指定天数前的错误日志"></i>
+            </label>
+            <div
+              class="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in"
+            >
+              <input
+                type="checkbox"
+                name="AUTO_DELETE_ERROR_LOGS_ENABLED"
+                id="AUTO_DELETE_ERROR_LOGS_ENABLED"
+                class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer"
+              />
+              <label
+                for="AUTO_DELETE_ERROR_LOGS_ENABLED"
+                class="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer"
+              ></label>
+            </div>
+          </div>
+        </div>
+
+        <!-- 自动删除日志天数 -->
+        <div class="mb-6">
+          <label
+            for="AUTO_DELETE_ERROR_LOGS_DAYS"
+            class="block font-semibold mb-2 text-gray-700"
+            >自动删除多少天前的错误日志
+            <i class="fas fa-question-circle text-gray-400 ml-1 cursor-help" title="选择自动删除错误日志的天数"></i>
+          </label>
+          <select
+            id="AUTO_DELETE_ERROR_LOGS_DAYS"
+            name="AUTO_DELETE_ERROR_LOGS_DAYS"
+            class="w-full px-4 py-3 rounded-lg form-select-themed"
+          >
+            <option value="1">1 天</option>
+            <option value="7">7 天</option>
+            <option value="30">30 天</option>
+          </select>
+        </div>
+
+        <!-- 自动删除请求日志 -->
+        <div class="mb-6">
+          <div class="flex items-center justify-between">
+            <label
+              for="AUTO_DELETE_REQUEST_LOGS_ENABLED"
+              class="font-semibold text-gray-700"
+              >是否开启自动删除请求日志
+              <i class="fas fa-question-circle text-gray-400 ml-1 cursor-help" title="开启后，将自动删除指定天数前的请求日志"></i>
+            </label>
+            <div
+              class="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in"
+            >
+              <input
+                type="checkbox"
+                name="AUTO_DELETE_REQUEST_LOGS_ENABLED"
+                id="AUTO_DELETE_REQUEST_LOGS_ENABLED"
+                class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer"
+              />
+              <label
+                for="AUTO_DELETE_REQUEST_LOGS_ENABLED"
+                class="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer"
+              ></label>
+            </div>
+          </div>
+        </div>
+
+        <!-- 自动删除请求日志天数 -->
+        <div class="mb-6">
+          <label
+            for="AUTO_DELETE_REQUEST_LOGS_DAYS"
+            class="block font-semibold mb-2 text-gray-700"
+            >自动删除多少天前的请求日志
+            <i class="fas fa-question-circle text-gray-400 ml-1 cursor-help" title="选择自动删除请求日志的天数"></i>
+          </label>
+          <select
+            id="AUTO_DELETE_REQUEST_LOGS_DAYS"
+            name="AUTO_DELETE_REQUEST_LOGS_DAYS"
+            class="w-full px-4 py-3 rounded-lg form-select-themed"
+          >
+            <option value="1">1 天</option>
+            <option value="7">7 天</option>
+            <option value="30">30 天</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div
+        class="flex flex-col md:flex-row justify-center gap-4 mt-8 pt-4 pb-2"
+      >
+        <button
+          type="button"
+          id="saveBtn"
+          class="action-btn text-white px-8 py-3 rounded-xl font-semibold transition-all duration-300 hover:shadow-lg flex items-center justify-center gap-2"
+          style="
+            background-color: #3b82f6 !important;
+            color: #ffffff !important;
+          "
+        >
+          <i class="fas fa-save"></i> 保存配置
+        </button>
+        <button
+          type="button"
+          id="resetBtn"
+          class="action-btn bg-gradient-to-r from-gray-600 to-gray-700 text-white px-8 py-3 rounded-xl font-semibold transition-all duration-300 hover:shadow-lg flex items-center justify-center gap-2"
+          style="
+            background-color: #6b7280 !important;
+            color: #ffffff !important;
+          "
+        >
+          <i class="fas fa-undo"></i> 重置配置
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Scroll buttons are now in base.html -->
+<div class="scroll-buttons">
+  <button class="scroll-button" onclick="scrollToTop()" title="回到顶部">
+    <i class="fas fa-chevron-up"></i>
+  </button>
+  <button class="scroll-button" onclick="scrollToBottom()" title="滚动到底部">
+    <i class="fas fa-chevron-down"></i>
+  </button>
+</div>
+
+<!-- Notification component is now in base.html -->
+<div id="notification" class="notification"></div>
+<!-- Footer is now in base.html -->
+
+<!-- API Key Add Modal -->
+<div id="apiKeyModal" class="modal">
+  <div
+    class="w-full max-w-lg mx-auto rounded-2xl shadow-2xl overflow-hidden animate-fade-in"
+    style="
+      background-color: rgba(255, 255, 255, 0.98);
+      color: #374151;
+      border: 1px solid rgba(0, 0, 0, 0.12);
+    "
+  >
+    <div class="p-6">
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="text-xl font-bold text-gray-800">批量添加 API 密钥</h2>
+        <button
+          id="closeApiKeyModalBtn"
+          class="text-gray-300 hover:text-gray-800 text-xl"
+        >
+          &times;
+        </button>
+      </div>
+
+      <!-- 提供商选择 -->
+      <div class="mb-4">
+        <label class="block font-semibold mb-2 text-gray-700">添加到</label>
+        <select
+          id="apiKeyTargetProvider"
+          class="w-full px-4 py-3 rounded-lg form-select-themed"
+        >
+          <option value="default">默认 API 密钥列表</option>
+          <!-- 提供商选项将动态添加 -->
+        </select>
+        <small class="text-gray-500">选择要添加密钥的目标位置</small>
+      </div>
+
+      <p class="text-gray-500 mb-4">
+        每行粘贴一个或多个密钥，将自动提取有效密钥并去重。
+      </p>
+      <textarea
+        id="apiKeyBulkInput"
+        rows="10"
+        placeholder="在此处粘贴 API 密钥..."
+        class="w-full px-4 py-3 rounded-lg font-mono text-sm form-input-themed"
+      ></textarea>
+      <div class="flex justify-end gap-3 mt-6">
+        <button
+          type="button"
+          id="confirmAddApiKeyBtn"
+          class="bg-violet-600 hover:bg-violet-700 text-white px-6 py-2 rounded-lg font-medium transition"
+        >
+          确认添加
+        </button>
+        <button
+          type="button"
+          id="cancelAddApiKeyBtn"
+          class="bg-gray-500 bg-opacity-50 hover:bg-opacity-70 text-gray-200 px-6 py-2 rounded-lg font-medium transition"
+        >
+          取消
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Bulk Delete API Key Modal -->
+<div id="bulkDeleteApiKeyModal" class="modal">
+  <div
+    class="w-full max-w-lg mx-auto rounded-2xl shadow-2xl overflow-hidden animate-fade-in"
+    style="
+      background-color: rgba(255, 255, 255, 0.98);
+      color: #374151;
+      border: 1px solid rgba(0, 0, 0, 0.12);
+    "
+  >
+    <div class="p-6">
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="text-xl font-bold text-gray-800">批量删除 API 密钥</h2>
+        <button
+          id="closeBulkDeleteModalBtn"
+          class="text-gray-300 hover:text-gray-800 text-xl"
+        >
+          &times;
+        </button>
+      </div>
+      <p class="text-gray-300 mb-4">
+        每行粘贴一个或多个密钥，将自动提取有效密钥并从列表中删除。
+      </p>
+      <textarea
+        id="bulkDeleteApiKeyInput"
+        rows="10"
+        placeholder="在此处粘贴要删除的 API 密钥..."
+        class="w-full px-4 py-3 rounded-lg font-mono text-sm form-input-themed"
+      ></textarea>
+      <div class="flex justify-end gap-3 mt-6">
+        <button
+          type="button"
+          id="confirmBulkDeleteApiKeyBtn"
+          class="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-lg font-medium transition"
+        >
+          确认删除
+        </button>
+        <button
+          type="button"
+          id="cancelBulkDeleteApiKeyBtn"
+          class="bg-gray-500 bg-opacity-50 hover:bg-opacity-70 text-gray-200 px-6 py-2 rounded-lg font-medium transition"
+        >
+          取消
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Proxy Add Modal -->
+<div id="proxyModal" class="modal">
+  <div
+    class="w-full max-w-lg mx-auto rounded-2xl shadow-2xl overflow-hidden animate-fade-in"
+    style="
+      background-color: rgba(255, 255, 255, 0.98);
+      color: #374151;
+      border: 1px solid rgba(0, 0, 0, 0.12);
+    "
+  >
+    <div class="p-6">
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="text-xl font-bold text-gray-800">批量添加代理服务器</h2>
+        <button
+          id="closeProxyModalBtn"
+          class="text-gray-300 hover:text-gray-800 text-xl"
+        >
+          &times;
+        </button>
+      </div>
+      <p class="text-gray-300 mb-4">
+        每行粘贴一个或多个代理地址，将自动提取有效地址并去重。
+      </p>
+      <textarea
+        id="proxyBulkInput"
+        rows="10"
+        placeholder="在此处粘贴代理地址 (例如 http://user:pass@host:port 或 socks5://host:port)..."
+        class="w-full px-4 py-3 rounded-lg font-mono text-sm form-input-themed"
+      ></textarea>
+      <div class="flex justify-end gap-3 mt-6">
+        <button
+          type="button"
+          id="confirmAddProxyBtn"
+          class="bg-violet-600 hover:bg-violet-700 text-white px-6 py-2 rounded-lg font-medium transition"
+        >
+          确认添加
+        </button>
+        <button
+          type="button"
+          id="cancelAddProxyBtn"
+          class="bg-gray-500 bg-opacity-50 hover:bg-opacity-70 text-gray-200 px-6 py-2 rounded-lg font-medium transition"
+        >
+          取消
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Bulk Delete Proxy Modal -->
+<div id="bulkDeleteProxyModal" class="modal">
+  <div
+    class="w-full max-w-lg mx-auto rounded-2xl shadow-2xl overflow-hidden animate-fade-in"
+    style="
+      background-color: rgba(255, 255, 255, 0.98);
+      color: #374151;
+      border: 1px solid rgba(0, 0, 0, 0.12);
+    "
+  >
+    <div class="p-6">
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="text-xl font-bold text-gray-800">批量删除代理服务器</h2>
+        <button
+          id="closeBulkDeleteProxyModalBtn"
+          class="text-gray-300 hover:text-gray-800 text-xl"
+        >
+          &times;
+        </button>
+      </div>
+      <p class="text-gray-300 mb-4">
+        每行粘贴一个或多个代理地址，将自动提取有效地址并从列表中删除。
+      </p>
+      <textarea
+        id="bulkDeleteProxyInput"
+        rows="10"
+        placeholder="在此处粘贴要删除的代理地址..."
+        class="w-full px-4 py-3 rounded-lg font-mono text-sm form-input-themed"
+      ></textarea>
+      <div class="flex justify-end gap-3 mt-6">
+        <button
+          type="button"
+          id="confirmBulkDeleteProxyBtn"
+          class="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-lg font-medium transition"
+        >
+          确认删除
+        </button>
+        <button
+          type="button"
+          id="cancelBulkDeleteProxyBtn"
+          class="bg-gray-500 bg-opacity-50 hover:bg-opacity-70 text-gray-200 px-6 py-2 rounded-lg font-medium transition"
+        >
+          取消
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Reset Confirmation Modal -->
+<div id="resetConfirmModal" class="modal">
+  <div
+    class="w-full max-w-md mx-auto rounded-2xl shadow-2xl overflow-hidden animate-fade-in"
+    style="
+      background-color: rgba(255, 255, 255, 0.98);
+      color: #374151;
+      border: 1px solid rgba(0, 0, 0, 0.12);
+    "
+  >
+    <div class="p-6">
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="text-xl font-bold text-gray-800">确认重置配置</h2>
+        <button
+          id="closeResetModalBtn"
+          class="text-gray-300 hover:text-gray-800 text-xl"
+        >
+          &times;
+        </button>
+      </div>
+      <p class="text-gray-300 mb-6">
+        确定要重置所有配置吗？<br />这将恢复到默认值，此操作不可撤销。
+      </p>
+      <div class="flex justify-end gap-3">
+        <button
+          type="button"
+          id="confirmResetBtn"
+          class="bg-red-500 hover:bg-red-600 text-white px-6 py-2 rounded-lg font-medium transition"
+        >
+          确认重置
+        </button>
+        <button
+          type="button"
+          id="cancelResetBtn"
+          class="bg-violet-600 hover:bg-violet-700 text-white px-6 py-2 rounded-lg font-medium transition"
+        >
+          取消
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Model Helper Modal -->
+<div id="modelHelperModal" class="modal">
+  <div
+    class="w-full max-w-lg mx-auto rounded-2xl shadow-2xl overflow-hidden animate-fade-in"
+    style="
+      background-color: rgba(255, 255, 255, 0.98);
+      color: #374151;
+      border: 1px solid rgba(0, 0, 0, 0.12);
+    "
+  >
+    <div class="p-6">
+      <div class="flex justify-between items-center mb-4">
+        <h2 id="modelHelperTitle" class="text-xl font-bold text-gray-800">
+          选择模型
+        </h2>
+        <button
+          id="closeModelHelperModalBtn"
+          class="text-gray-300 hover:text-gray-800 text-xl"
+        >
+          &times;
+        </button>
+      </div>
+      <input
+        type="text"
+        id="modelHelperSearchInput"
+        placeholder="搜索模型..."
+        class="w-full px-4 py-3 mb-4 rounded-lg font-mono text-sm form-input-themed"
+      />
+      <div
+        id="modelHelperListContainer"
+        class="array-container"
+        style="max-height: 300px; overflow-y: auto"
+      >
+        <!-- Model items will be populated here -->
+        <p class="text-gray-400 text-sm italic">正在加载模型列表...</p>
+      </div>
+      <div class="flex justify-end gap-3 mt-6">
+        <button
+          type="button"
+          id="cancelModelHelperBtn"
+          class="bg-gray-500 bg-opacity-50 hover:bg-opacity-70 text-gray-200 px-6 py-2 rounded-lg font-medium transition"
+        >
+          关闭
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Provider Add/Edit Modal -->
+<div id="providerModal" class="modal">
+  <div
+    class="w-full max-w-2xl mx-auto rounded-2xl shadow-2xl overflow-hidden animate-fade-in"
+    style="
+      background-color: rgba(255, 255, 255, 0.98);
+      color: #374151;
+      border: 1px solid rgba(0, 0, 0, 0.12);
+    "
+  >
+    <div class="p-6">
+      <div class="flex justify-between items-center mb-4">
+        <h2 id="providerModalTitle" class="text-xl font-bold text-gray-800">
+          添加提供商
+        </h2>
+        <button
+          id="closeProviderModalBtn"
+          class="text-gray-300 hover:text-gray-800 text-xl"
+        >
+          &times;
+        </button>
+      </div>
+
+      <div class="space-y-4 max-h-96 overflow-y-auto">
+        <!-- 提供商名称 -->
+        <div>
+          <label class="block font-semibold mb-1 text-gray-700">提供商名称 *</label>
+          <input
+            type="text"
+            id="providerName"
+            placeholder="如: deepseek, claude, openai"
+            class="w-full px-4 py-2 rounded-lg form-input-themed"
+          />
+          <small class="text-gray-500">唯一标识符，用于内部识别</small>
+        </div>
+
+        <!-- 路由路径 -->
+        <div>
+          <label class="block font-semibold mb-1 text-gray-700">路由路径 *</label>
+          <input
+            type="text"
+            id="providerPath"
+            placeholder="如: deepseek, claude"
+            class="w-full px-4 py-2 rounded-lg form-input-themed"
+          />
+          <div id="providerPathPreview" class="mt-2 p-2 bg-gray-100 rounded-lg text-sm font-mono text-gray-600">
+            <div class="text-xs text-gray-500 mb-1">访问地址预览:</div>
+            <div id="pathPreviewContent">
+              <div>/<span class="text-blue-600">{path}</span>/v1/chat/completions</div>
+              <div>/hf/<span class="text-blue-600">{path}</span>/v1/chat/completions</div>
+              <div>/openai/<span class="text-blue-600">{path}</span>/v1/chat/completions</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Base URL -->
+        <div>
+          <label class="block font-semibold mb-1 text-gray-700">API Base URL *</label>
+          <input
+            type="text"
+            id="providerBaseUrl"
+            placeholder="https://api.openai.com/v1"
+            class="w-full px-4 py-2 rounded-lg form-input-themed"
+          />
+        </div>
+
+        <!-- API Keys -->
+        <div>
+          <label class="block font-semibold mb-1 text-gray-700">API 密钥</label>
+          <textarea
+            id="providerApiKeys"
+            rows="3"
+            placeholder="每行一个 API 密钥"
+            class="w-full px-4 py-2 rounded-lg form-input-themed font-mono text-sm"
+            oninput="updateModelRequestKeyOptions()"
+          ></textarea>
+        </div>
+
+        <!-- Model Request Key -->
+        <div>
+          <label class="block font-semibold mb-1 text-gray-700">模型列表请求密钥
+            <i class="fas fa-question-circle text-gray-400 ml-1 cursor-help" title="用于获取模型列表的专用密钥。如果不选择，将使用第一个 API 密钥。"></i>
+          </label>
+          <select
+            id="providerModelRequestKey"
+            class="w-full px-4 py-2 rounded-lg form-select-themed"
+          >
+            <option value="">使用第一个 API 密钥</option>
+          </select>
+          <small class="text-gray-500">选择用于获取模型列表的密钥，留空则使用第一个密钥</small>
+        </div>
+
+        <!-- Custom Headers -->
+        <div>
+          <label class="block font-semibold mb-1 text-gray-700">自定义 Headers (JSON)</label>
+          <textarea
+            id="providerCustomHeaders"
+            rows="2"
+            placeholder='{"anthropic-version": "2024-01-01"}'
+            class="w-full px-4 py-2 rounded-lg form-input-themed font-mono text-sm"
+          ></textarea>
+        </div>
+
+        <!-- 高级设置 -->
+        <div class="grid grid-cols-3 gap-4">
+          <div>
+            <label class="block font-semibold mb-1 text-gray-700">超时(秒)</label>
+            <input
+              type="number"
+              id="providerTimeout"
+              value="300"
+              min="1"
+              max="600"
+              class="w-full px-4 py-2 rounded-lg form-input-themed"
+            />
+          </div>
+          <div>
+            <label class="block font-semibold mb-1 text-gray-700">最大失败次数</label>
+            <input
+              type="number"
+              id="providerMaxFailures"
+              value="3"
+              min="1"
+              max="100"
+              class="w-full px-4 py-2 rounded-lg form-input-themed"
+            />
+          </div>
+          <div>
+            <label class="block font-semibold mb-1 text-gray-700">最大重试次数</label>
+            <input
+              type="number"
+              id="providerMaxRetries"
+              value="3"
+              min="0"
+              max="10"
+              class="w-full px-4 py-2 rounded-lg form-input-themed"
+            />
+          </div>
+        </div>
+
+        <!-- 测试模型 -->
+        <div>
+          <label class="block font-semibold mb-1 text-gray-700">测试模型</label>
+          <div class="flex items-center gap-2">
+            <input
+              type="text"
+              id="providerTestModel"
+              placeholder="如: gpt-4o-mini, deepseek-chat"
+              class="flex-grow px-4 py-2 rounded-lg form-input-themed"
+            />
+            <button
+              type="button"
+              id="fetchProviderModelsBtn"
+              title="从提供商获取模型列表"
+              class="p-2 rounded-md text-blue-500 hover:bg-blue-100 transition-colors"
+              onclick="fetchProviderModels()"
+            >
+              <i class="fas fa-sync-alt"></i>
+            </button>
+          </div>
+          <small class="text-gray-500">用于测试 API 密钥可用性的模型名称</small>
+          <!-- 模型选择下拉框（动态显示） -->
+          <div id="providerModelSelectContainer" class="mt-2" style="display: none;">
+            <select id="providerModelSelect" class="w-full px-4 py-2 rounded-lg form-select-themed" onchange="selectProviderModel(this.value)">
+              <option value="">-- 选择模型 --</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- 启用代码执行工具 -->
+        <div class="flex items-center justify-between">
+          <label class="font-semibold text-gray-700">启用代码执行工具</label>
+          <div
+            class="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in"
+          >
+            <input
+              type="checkbox"
+              id="providerCodeExecutionEnabled"
+              class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer"
+            />
+            <label
+              for="providerCodeExecutionEnabled"
+              class="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer"
+            ></label>
+          </div>
+        </div>
+
+        <!-- 启用状态 -->
+        <div class="flex items-center justify-between">
+          <label class="font-semibold text-gray-700">启用此提供商</label>
+          <div
+            class="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in"
+          >
+            <input
+              type="checkbox"
+              id="providerEnabled"
+              checked
+              class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer"
+            />
+            <label
+              for="providerEnabled"
+              class="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer"
+            ></label>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex justify-end gap-3 mt-6">
+        <button
+          type="button"
+          id="confirmProviderBtn"
+          class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium transition"
+        >
+          确认
+        </button>
+        <button
+          type="button"
+          id="cancelProviderBtn"
+          class="bg-gray-500 bg-opacity-50 hover:bg-opacity-70 text-gray-200 px-6 py-2 rounded-lg font-medium transition"
+        >
+          取消
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %} {% block body_scripts %}
+<script src="{{ static_url('js/config_editor.js') }}"></script>
+<script src="{{ static_url('js/provider_config.js') }}"></script>
+<!-- 增强下拉框样式和交互性 -->
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    // 增强所有下拉框的交互性
+    const selects = document.querySelectorAll(".form-select-themed");
+
+    selects.forEach((select) => {
+      // 添加选择事件来应用选中效果
+      select.addEventListener("change", function () {
+        this.classList.add("selected");
+        // 设置微小的动画效果
+        this.style.transition = "all 0.2s ease";
+        this.style.transform = "scale(1.02)";
+        setTimeout(() => {
+          this.style.transform = "scale(1)";
+        }, 200);
+      });
+
+      // 添加焦点事件
+      select.addEventListener("focus", function () {
+        this.style.boxShadow = "0 0 0 3px rgba(216, 180, 254, 0.5)";
+      });
+
+      // 根据是否有选中值添加选中样式
+      if (select.value && select.value !== "") {
+        select.classList.add("selected");
+      }
+    });
+
+    // 美化日志级别选择的显示 - 浅色主题版本
+    const logLevelSelect = document.getElementById("LOG_LEVEL");
+    if (logLevelSelect) {
+      // 给不同日志级别添加统一的浅色主题样式
+      const updateLogLevelStyle = () => {
+        const value = logLevelSelect.value;
+
+        // 统一使用浅色主题样式，通过轻微的边框变化来区分级别
+        switch (value) {
+          case "DEBUG":
+            logLevelSelect.style.borderColor = "#3b82f6"; // blue-500 主题色
+            logLevelSelect.style.color = "#374151"; // gray-700 深灰文字
+            break;
+          case "INFO":
+            logLevelSelect.style.borderColor = "#3b82f6"; // blue-500 主题色
+            logLevelSelect.style.color = "#374151"; // gray-700 深灰文字
+            break;
+          case "WARNING":
+            logLevelSelect.style.borderColor = "#6b7280"; // gray-500 中性灰
+            logLevelSelect.style.color = "#374151"; // gray-700 深灰文字
+            break;
+          case "ERROR":
+            logLevelSelect.style.borderColor = "#6b7280"; // gray-500 中性灰
+            logLevelSelect.style.color = "#374151"; // gray-700 深灰文字
+            break;
+          case "CRITICAL":
+            logLevelSelect.style.borderColor = "#4b5563"; // gray-600 稍深灰
+            logLevelSelect.style.color = "#374151"; // gray-700 深灰文字
+            break;
+          default:
+            logLevelSelect.style.borderColor = "rgba(0, 0, 0, 0.12)"; // 默认边框
+            logLevelSelect.style.color = "#374151"; // gray-700 深灰文字
+        }
+      };
+
+      // 初始化和变更时更新样式
+      updateLogLevelStyle();
+      logLevelSelect.addEventListener("change", updateLogLevelStyle);
+    }
+
+    // 增强预算映射项交互
+    const budgetInputs = document.querySelectorAll(".map-value-input");
+    budgetInputs.forEach((input) => {
+      // 添加焦点和悬停效果
+      input.addEventListener("focus", function () {
+        const parentItem = this.closest(".map-item");
+        if (parentItem) {
+          parentItem.style.backgroundColor =
+            "rgba(243, 244, 246, 1)"; /* gray-100 */
+          parentItem.style.borderColor =
+            "rgba(59, 130, 246, 0.5)"; /* blue-500 */
+        }
+      });
+
+      input.addEventListener("blur", function () {
+        const parentItem = this.closest(".map-item");
+        if (parentItem) {
+          parentItem.style.backgroundColor = "";
+          parentItem.style.borderColor = "";
+        }
+      });
+
+      // 输入限制为正整数且不超过最大值
+      input.addEventListener("input", function () {
+        let val = this.value.replace(/[^0-9]/g, "");
+        if (val !== "") {
+          val = parseInt(val, 10);
+          if (val > 32767) val = 32767;
+        }
+        this.value = val;
+
+        // 添加微小动画反馈
+        this.style.transform = "scale(1.05)";
+        setTimeout(() => {
+          this.style.transform = "scale(1)";
+        }, 150);
+      });
+    });
+  });
+</script>
+{% endblock %}

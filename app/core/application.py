@@ -1,0 +1,189 @@
+"""
+应用程序工厂模块
+
+负责创建和配置 FastAPI 应用程序实例，包括：
+- 数据库初始化和连接
+- 配置同步
+- 中间件设置
+- 路由配置
+- 调度器启动
+"""
+
+from contextlib import asynccontextmanager
+from pathlib import Path
+
+from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
+
+from app.config.config import settings, sync_initial_settings
+from app.database.connection import connect_to_db, disconnect_from_db
+from app.database.initialization import initialize_database
+from app.exception.exceptions import setup_exception_handlers
+from app.log.logger import get_application_logger, setup_access_logging
+from app.middleware.middleware import setup_middlewares
+from app.router.routes import setup_routers
+from app.scheduler.scheduled_tasks import start_scheduler, stop_scheduler
+from app.service.config.config_watcher import start_config_watcher, stop_config_watcher
+from app.service.key.key_manager import get_key_manager_instance
+from app.service.provider.provider_manager import get_provider_manager
+from app.service.update.update_service import check_for_updates
+from app.utils.helpers import get_current_version
+
+logger = get_application_logger()
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+STATIC_DIR = PROJECT_ROOT / "app" / "static"
+TEMPLATES_DIR = PROJECT_ROOT / "app" / "templates"
+
+# 初始化模板引擎
+templates = Jinja2Templates(directory="app/templates")
+
+
+def update_template_globals(app: FastAPI, update_info: dict):
+    """
+    更新模板全局变量
+
+    Args:
+        app: FastAPI 应用实例
+        update_info: 更新信息字典
+    """
+    app.state.update_info = update_info
+    logger.info(f"Update info stored in app.state: {update_info}")
+
+
+async def _setup_database_and_config(app_settings):
+    """
+    初始化数据库、同步配置、初始化 KeyManager 和 ProviderManager
+
+    Args:
+        app_settings: 应用配置对象
+    """
+    initialize_database()
+    logger.info("Database initialized successfully")
+    await connect_to_db()
+    await sync_initial_settings()
+    await get_key_manager_instance(app_settings.API_KEYS)
+
+    # 初始化多提供商管理器
+    provider_manager = await get_provider_manager()
+    await provider_manager.initialize()
+
+    logger.info("Database, config sync, KeyManager, and ProviderManager initialized successfully")
+
+
+async def _shutdown_database():
+    """断开数据库连接"""
+    await disconnect_from_db()
+
+
+def _start_scheduler():
+    """启动后台调度器"""
+    try:
+        start_scheduler()
+        logger.info("Scheduler started successfully.")
+    except Exception as e:
+        logger.error(f"Failed to start scheduler: {e}")
+
+
+def _stop_scheduler():
+    """停止后台调度器"""
+    stop_scheduler()
+
+
+async def _perform_update_check(app: FastAPI):
+    """
+    检查更新并存储信息到 app.state
+
+    Args:
+        app: FastAPI 应用实例
+    """
+    update_available, latest_version, error_message = await check_for_updates()
+    current_version = get_current_version()
+    update_info = {
+        "update_available": update_available,
+        "latest_version": latest_version,
+        "error_message": error_message,
+        "current_version": current_version,
+    }
+    if not hasattr(app, "state"):
+        from starlette.datastructures import State
+
+        app.state = State()
+    app.state.update_info = update_info
+    logger.info(f"Update check completed. Info: {update_info}")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    管理应用程序的启动和关闭事件
+
+    Args:
+        app: FastAPI 应用实例
+    """
+    logger.info("Application starting up...")
+    try:
+        await _setup_database_and_config(settings)
+        await _perform_update_check(app)
+        _start_scheduler()
+        # 启动配置热重载监控
+        await start_config_watcher()
+        logger.info("Config watcher started for .env hot reload")
+
+    except Exception as e:
+        logger.critical(
+            f"Critical error during application startup: {str(e)}", exc_info=True
+        )
+
+    yield
+
+    logger.info("Application shutting down...")
+    # 停止配置热重载监控
+    await stop_config_watcher()
+    _stop_scheduler()
+    await _shutdown_database()
+
+
+def create_app() -> FastAPI:
+    """
+    创建并配置 FastAPI 应用程序实例
+
+    Returns:
+        配置好的 FastAPI 应用程序实例
+    """
+    current_version = get_current_version()
+    app = FastAPI(
+        title="OpenAI Balance API",
+        description="OpenAI API 代理服务，支持负载均衡和密钥管理",
+        version=current_version,
+        lifespan=lifespan,
+    )
+
+    if not hasattr(app, "state"):
+        from starlette.datastructures import State
+
+        app.state = State()
+    app.state.update_info = {
+        "update_available": False,
+        "latest_version": None,
+        "error_message": "Initializing...",
+        "current_version": current_version,
+    }
+
+    # 配置静态文件
+    app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+
+    # 配置中间件
+    setup_middlewares(app)
+
+    # 配置异常处理器
+    setup_exception_handlers(app)
+
+    # 配置路由
+    setup_routers(app)
+
+    # 配置访问日志 API 密钥隐藏
+    setup_access_logging()
+
+    return app

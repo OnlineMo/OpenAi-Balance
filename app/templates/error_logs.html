@@ -1,0 +1,1223 @@
+{% extends "base.html" %} {% block title %}错误日志管理 - OpenAI Balance{%
+endblock %} {% block head_extra_styles %}
+<style>
+  /* error_logs.html specific styles */
+  .styled-table th {
+    position: sticky;
+    top: 0;
+    background-color: rgba(249, 250, 251, 0.95) !important; /* light gray header */
+    color: #374151 !important; /* dark gray text */
+    z-index: 10;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  }
+  .styled-table tbody tr:hover {
+    background-color: rgba(59, 130, 246, 0.05) !important; /* light blue hover */
+  }
+  .styled-table td {
+    padding: 12px 20px;
+    vertical-align: middle;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 250px;
+    color: #d1d5db; /* theming: table cell text (gray-300) */
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08); /* light theme: cell border */
+  }
+  .styled-table td:nth-child(4) {
+    white-space: nowrap;
+  }
+  .btn-view-details {
+    background-color: #3b82f6 !important; /* blue-600 for light theme */
+    color: #ffffff !important; /* white text */
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-weight: 500;
+    transition: all 0.2s ease-in-out;
+    border: 1px solid #2563eb !important; /* blue-700 border */
+  }
+  .btn-view-details:hover {
+    background-color: #2563eb !important; /* blue-700 on hover */
+    color: #ffffff !important; /* white text on hover */
+    box-shadow: 0 4px 8px rgba(59, 130, 246, 0.3) !important; /* blue shadow */
+    transform: translateY(-1px) !important; /* slight lift effect */
+  }
+  @media (max-width: 768px) {
+    .search-container {
+      grid-template-columns: 1fr;
+    }
+    
+    /* 移动端主容器布局 */
+    .mobile-buttons-container {
+      display: flex !important;
+      flex-direction: column !important;
+      gap: 1rem !important;
+      align-items: stretch !important;
+      width: 100% !important;
+      padding: 0 !important;
+      margin: 0 !important;
+    }
+    
+    /* 移动端搜索控件布局优化 */
+    .mobile-search-controls {
+      grid-template-columns: 1fr !important;
+      gap: 0.75rem !important;
+      width: 100% !important;
+      margin-bottom: 0.5rem !important;
+    }
+    
+    /* 按钮容器在移动端的布局 */
+    .buttons-container-responsive {
+      display: flex !important;
+      flex-direction: column !important;
+      gap: 0.5rem !important;
+      width: 100% !important;
+      align-items: stretch !important;
+      justify-content: stretch !important;
+    }
+    
+    /* 移动端所有按钮样式 */
+    .buttons-container-responsive button {
+      width: 100% !important;
+      max-width: 100% !important;
+      justify-content: center !important;
+      text-align: center !important;
+      min-width: 0 !important;
+      flex-shrink: 0 !important;
+      box-sizing: border-box !important;
+      padding: 0.5rem 1rem !important;
+      font-size: 0.875rem !important;
+      white-space: nowrap !important;
+      overflow: hidden !important;
+      text-overflow: ellipsis !important;
+    }
+  }
+  
+  /* 中等屏幕优化 */
+  @media (max-width: 1024px) and (min-width: 769px) {
+    .buttons-container-responsive {
+      flex-wrap: wrap !important;
+      justify-content: center !important;
+    }
+    
+    .buttons-container-responsive button {
+      flex-shrink: 1 !important;
+      min-width: 0 !important;
+      padding-left: 0.75rem !important;
+      padding-right: 0.75rem !important;
+    }
+  }
+  
+  /* 小屏幕(手机)特殊优化 - 确保按钮在边框内 */
+  @media (max-width: 640px) {
+    /* 强制重写主容器布局 */
+    .mobile-buttons-container {
+      display: flex !important;
+      flex-direction: column !important;
+      width: 100% !important;
+      padding: 0 !important;
+      margin: 0 !important;
+      gap: 1rem !important;
+      overflow: visible !important;
+    }
+    
+    /* 搜索区域在移动端占满宽度 */
+    .mobile-search-controls {
+      width: 100% !important;
+      box-sizing: border-box !important;
+    }
+    
+    /* 按钮区域完全重新布局 */
+    .buttons-container-responsive {
+      display: flex !important;
+      flex-direction: column !important;
+      width: 100% !important;
+      max-width: 100% !important;
+      gap: 0.5rem !important;
+      padding: 0 !important;
+      margin: 0 !important;
+      box-sizing: border-box !important;
+      overflow: visible !important;
+    }
+    
+    /* 所有按钮统一样式 */
+    .buttons-container-responsive button {
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      width: 100% !important;
+      max-width: 100% !important;
+      box-sizing: border-box !important;
+      padding: 0.5rem 1rem !important;
+      margin: 0 !important;
+      font-size: 0.875rem !important;
+      line-height: 1.25rem !important;
+      border-radius: 0.5rem !important;
+      white-space: nowrap !important;
+      overflow: hidden !important;
+      text-overflow: ellipsis !important;
+      flex-shrink: 0 !important;
+    }
+    
+    /* 特别针对清空全部按钮 */
+    #deleteAllLogsBtn {
+      background-color: #f87171 !important;
+      border: 1px solid #f87171 !important;
+    }
+    
+    #deleteAllLogsBtn:hover {
+      background-color: #ef4444 !important;
+      border: 1px solid #ef4444 !important;
+    }
+    
+    /* 确保容器不会溢出父级 */
+    .mobile-buttons-container,
+    .mobile-buttons-container > *,
+    .buttons-container-responsive,
+    .buttons-container-responsive > * {
+      max-width: 100% !important;
+      box-sizing: border-box !important;
+    }
+    
+    /* 额外的安全边距控制 */
+    .mobile-buttons-container .grid {
+      padding-left: 0 !important;
+      padding-right: 0 !important;
+      margin-left: 0 !important;
+      margin-right: 0 !important;
+    }
+    
+    /* 确保主内容区域有适当的内边距 */
+    .rounded-xl.p-6 {
+      padding-left: 1rem !important;
+      padding-right: 1rem !important;
+    }
+  }
+  
+  /* 超小屏幕额外优化 */
+  @media (max-width: 480px) {
+    .mobile-buttons-container {
+      gap: 0.75rem !important;
+    }
+    
+    .buttons-container-responsive {
+      gap: 0.4rem !important;
+    }
+    
+    .buttons-container-responsive button {
+      padding: 0.4rem 0.8rem !important;
+      font-size: 0.8rem !important;
+    }
+    
+    /* 主容器内边距进一步缩小 */
+    .rounded-xl.p-6 {
+      padding-left: 0.75rem !important;
+      padding-right: 0.75rem !important;
+    }
+    
+    /* 确保清空全部按钮文字不会太挤 */
+    #deleteAllLogsBtn i {
+      margin-right: 0.25rem !important;
+    }
+  }
+
+  input[type="text"],
+  input[type="datetime-local"],
+  select,
+  button {
+    height: 36px !important;
+  }
+  .form-input-themed {
+    background-color: rgba(255, 255, 255, 0.95) !important;
+    border: 1px solid rgba(0, 0, 0, 0.12) !important;
+    color: #374151 !important; /* gray-700 */
+    box-shadow: none !important;
+    outline: none !important;
+  }
+
+  input[type="datetime-local"],
+  select#pageSize {
+    background-color: rgba(255, 255, 255, 0.95) !important;
+    border: 1px solid rgba(0, 0, 0, 0.12) !important;
+    color: #374151 !important; /* gray-700 */
+    box-shadow: none !important;
+    outline: none !important;
+  }
+  .form-input-themed::placeholder,
+  input[type="datetime-local"]::placeholder {
+    color: #9ca3af !important; /* gray-400 */
+  }
+  .form-input-themed:focus,
+  input[type="datetime-local"]:focus,
+  select#pageSize:focus {
+    border-color: #3b82f6 !important; /* blue-500 */
+    box-shadow: none !important; /* 移除focus阴影 */
+    outline: none !important;
+  }
+  select#pageSize {
+    /* Light theme pagination dropdown styling */
+    background-color: rgba(255, 255, 255, 0.95) !important;
+    border: 1px solid rgba(0, 0, 0, 0.12) !important;
+    color: #374151 !important; /* gray-700 */
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M6 8l4 4 4-4'/%3e%3c/svg%3e") !important;
+    appearance: none !important;
+    padding: 0.5rem 2.5rem 0.5rem 0.75rem !important;
+    background-repeat: no-repeat !important;
+    background-position: right 0.6rem center !important;
+    background-size: 1.2em 1.2em !important;
+    border-radius: 0.375rem !important;
+    font-weight: 500 !important;
+    height: auto !important;
+    min-height: 2.25rem !important; /* 36px equivalent */
+    line-height: 1.25 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    vertical-align: middle !important;
+    box-shadow: none !important; /* 移除默认阴影 */
+    cursor: pointer !important;
+  }
+
+  select#pageSize:focus {
+    border-color: #3b82f6 !important; /* blue-500 */
+    box-shadow: none !important; /* 移除focus阴影 */
+    outline: none !important;
+  }
+
+  select#pageSize option {
+    background-color: rgba(255, 255, 255, 0.98) !important;
+    color: #374151 !important; /* gray-700 */
+    padding: 8px !important;
+    font-weight: 500 !important;
+  }
+
+  .date-range-container {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  @media (max-width: 640px) {
+    input[type="datetime-local"] {
+      min-width: 0;
+      width: 100%;
+    }
+  }
+  label {
+    color: #e2e8f0 !important; /* Light gray/white for labels */
+    font-weight: 500;
+  }
+
+  /* 导航链接悬停样式 (从 config_editor.html 复制) */
+  .nav-link {
+    transition: all 0.2s ease-in-out;
+  }
+
+  .nav-link:hover {
+    background-color: rgba(59, 130, 246, 0.1) !important; /* blue-500 light */
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  }
+
+  /* Fix all purple backgrounds to light theme */
+  .rounded-2xl[style*="background-color: rgba(80, 60, 160"],
+  .rounded-xl[style*="background-color: rgba(70, 50, 150"] {
+    background-color: rgba(255, 255, 255, 0.95) !important;
+    border-color: rgba(0, 0, 0, 0.08) !important;
+  }
+
+  /* Fix navigation styling */
+  .nav-link {
+    background-color: rgba(229, 231, 235, 0.8) !important; /* gray-200 */
+    color: #374151 !important; /* gray-700 */
+    transition: all 0.2s ease-in-out;
+    position: relative;
+    z-index: 1; /* 确保不会遮挡重要内容 */
+  }
+
+  .nav-link:hover {
+    background-color: rgba(59, 130, 246, 0.1) !important; /* blue-500 light */
+    transform: scale(1.02); /* 使用缩放代替向上移动 */
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15); /* 增强阴影效果 */
+  }
+
+  /* 导航按钮容器样式 - 为悬停效果预留空间 */
+  .nav-buttons-container {
+    padding-top: 0.5rem; /* 为悬停效果预留上方空间 */
+    padding-bottom: 0.75rem; /* 为悬停效果预留下方空间 */
+  }
+
+  /* 主导航按钮的优化悬停效果 */
+  .main-nav-btn:hover {
+    transform: scale(1.02) !important; /* 使用缩放代替向上移动 */
+    box-shadow: 0 8px 16px rgba(59, 130, 246, 0.3) !important; /* 蓝色阴影 */
+  }
+
+  .bg-violet-600 {
+    background-color: #3b82f6 !important; /* blue-500 */
+  }
+
+  /* Fix page title gradient */
+  .text-transparent.bg-clip-text.bg-gradient-to-r.from-violet-400.to-pink-400 {
+    background: none !important;
+    color: #1f2937 !important; /* gray-800 */
+    -webkit-background-clip: unset !important;
+    background-clip: unset !important;
+  }
+
+  /* Fix section headings */
+  .text-gray-100 {
+    color: #1f2937 !important; /* gray-800 */
+  }
+
+  .border-violet-300 {
+    border-color: #d1d5db !important; /* gray-300 */
+  }
+
+  .text-violet-400 {
+    color: #3b82f6 !important; /* blue-500 */
+  }
+
+  /* Fix text colors for light theme */
+  .pagination-text, .text-gray-300 {
+    color: #374151 !important; /* dark gray for light theme */
+    font-weight: 500;
+  }
+
+  /* Fix button colors */
+  .bg-violet-600, .bg-violet-700 {
+    background-color: #3b82f6 !important; /* blue-500 - light blue */
+  }
+
+  .hover\\:bg-violet-700:hover {
+    background-color: #2563eb !important; /* blue-600 - darker light blue */
+  }
+
+  /* Override blue buttons to light blue */
+  .bg-blue-600, button.bg-blue-600 {
+    background-color: #3b82f6 !important; /* blue-500 - light blue */
+  }
+
+  .bg-blue-600:hover, button.bg-blue-600:hover,
+  .hover\\:bg-blue-700:hover {
+    background-color: #2563eb !important; /* blue-600 - darker light blue */
+  }
+
+  /* Override red buttons to bright light red */
+  .bg-red-600, button.bg-red-600,
+  .bg-red-700, button.bg-red-700,
+  .bg-red-800, button.bg-red-800 {
+    background-color: #f87171 !important; /* red-400 - bright light red */
+  }
+
+  .bg-red-600:hover, button.bg-red-600:hover,
+  .bg-red-700:hover, button.bg-red-700:hover,
+  .bg-red-800:hover, button.bg-red-800:hover,
+  .hover\\:bg-red-700:hover, .hover\\:bg-red-800:hover {
+    background-color: #ef4444 !important; /* red-500 - darker bright light red */
+  }
+
+  /* Fix form elements */
+  .text-violet-500 {
+    color: #3b82f6 !important; /* blue-500 */
+  }
+
+  .focus\\:ring-violet-500:focus {
+    --tw-ring-color: rgba(59, 130, 246, 0.2) !important;
+  }
+
+  .focus\\:border-violet-400:focus {
+    border-color: #3b82f6 !important; /* blue-500 */
+  }
+
+  /* Fix loading indicator */
+  .border-violet-400 {
+    border-color: #3b82f6 !important; /* blue-500 */
+  }
+
+  /* New Pagination Styles (inspired by keys_status.html) */
+  ul.pagination a {
+    /* Targets the <a> tags directly within ul.pagination */
+    display: inline-flex; /* Consistent with flex from addPaginationLink */
+    align-items: center;
+    justify-content: center;
+    /* Tailwind classes from JS will handle padding, border-radius, font-size, transition */
+    /* Defaults for non-active, non-disabled, non-hover buttons */
+    background-color: rgba(255, 255, 255, 0.9) !important;
+    color: #374151 !important; /* gray-700 */
+    border: 1px solid rgba(0, 0, 0, 0.08) !important;
+    text-shadow: none;
+    min-width: 36px; /* Retain from original error_logs for consistency */
+    text-align: center; /* Retain from original error_logs for consistency */
+    /* Ensure base transition if not fully handled by JS's Tailwind classes */
+    transition: background-color 0.15s ease-in-out,
+      border-color 0.15s ease-in-out, color 0.15s ease-in-out;
+  }
+
+  ul.pagination a:hover:not(.active):not(.disabled) {
+    /* Hover for non-active, non-disabled */
+    background-color: rgba(229, 231, 235, 1) !important; /* gray-200 */
+    border-color: rgba(0, 0, 0, 0.12) !important;
+    color: #374151 !important;
+  }
+
+  ul.pagination a.active {
+    /* Active state */
+    background-color: #3b82f6 !important; /* blue-500 */
+    border-color: #2563eb !important; /* blue-600 */
+    color: #ffffff !important; /* Ensure text is white */
+    font-weight: 600; /* Make active page number bolder */
+    cursor: default;
+  }
+
+  ul.pagination a.disabled {
+    /* Disabled state for '...' or prev/next unavailable */
+    background-color: rgba(249, 250, 251, 0.5) !important; /* light gray */
+    color: rgba(156, 163, 175, 0.8) !important; /* gray-400 */
+    border-color: rgba(0, 0, 0, 0.04) !important;
+    cursor: not-allowed;
+    pointer-events: none;
+    text-shadow: none;
+  }
+
+  /* Fix modal styling - comprehensive override */
+  .modal .w-full.max-w-6xl[style*="background-color: rgba(70, 50, 150"],
+  .modal .w-full.max-w-md[style*="background-color: rgba(70, 50, 150"] {
+    background-color: rgba(255, 255, 255, 0.98) !important;
+    color: #374151 !important; /* gray-700 */
+    border-color: rgba(0, 0, 0, 0.08) !important;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04) !important;
+  }
+
+  /* Fix modal titles */
+  .modal .text-gray-100, .modal h2.text-gray-100 {
+    color: #1f2937 !important; /* gray-800 */
+    font-weight: 600 !important;
+  }
+
+  /* Fix modal section labels */
+  .modal .text-violet-200, .modal h6.text-violet-200 {
+    color: #3b82f6 !important; /* blue-500 */
+    font-weight: 600 !important;
+  }
+
+  /* Fix modal close buttons */
+  .modal .text-gray-300 {
+    color: #6b7280 !important; /* gray-500 */
+  }
+
+  .modal .text-gray-300:hover {
+    color: #374151 !important; /* gray-700 */
+  }
+
+  /* Fix modal content areas with purple backgrounds */
+  .modal [style*="background-color: rgba(80, 60, 160"] {
+    background-color: rgba(249, 250, 251, 0.95) !important; /* gray-50 */
+    border: 1px solid rgba(0, 0, 0, 0.08) !important;
+  }
+
+  /* Fix modal pre and code text */
+  .modal pre, .modal code {
+    background-color: rgba(243, 244, 246, 0.95) !important; /* gray-100 */
+    color: #374151 !important; /* gray-700 */
+    border: 1px solid rgba(0, 0, 0, 0.08) !important;
+  }
+
+  /* Fix modal text content */
+  .modal .text-gray-200, .modal p.text-gray-200 {
+    color: #374151 !important; /* gray-700 */
+  }
+
+  /* Fix modal error text */
+  .modal .text-red-300 {
+    color: #dc2626 !important; /* red-600 */
+    font-weight: 500 !important;
+  }
+
+  /* Fix modal button styling */
+  .modal .bg-gray-500, .modal button.bg-gray-500 {
+    background-color: #6b7280 !important; /* gray-500 */
+    color: #ffffff !important;
+    border: 1px solid #4b5563 !important; /* gray-600 */
+  }
+
+  .modal .bg-gray-500:hover, .modal button.bg-gray-500:hover {
+    background-color: #4b5563 !important; /* gray-600 */
+    transform: translateY(-1px) !important;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1) !important;
+  }
+
+  /* Fix modal red/danger buttons */
+  .modal .bg-red-600, .modal button.bg-red-600 {
+    background-color: #dc2626 !important; /* red-600 */
+    color: #ffffff !important;
+    border: 1px solid #b91c1c !important; /* red-700 */
+  }
+
+  .modal .bg-red-600:hover, .modal button.bg-red-600:hover {
+    background-color: #b91c1c !important; /* red-700 */
+    transform: translateY(-1px) !important;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1) !important;
+  }
+
+  /* Fix modal copy buttons */
+  .modal .copy-btn {
+    background-color: rgba(107, 114, 128, 0.8) !important; /* gray-500 with opacity */
+    color: #ffffff !important;
+    border: 1px solid rgba(75, 85, 99, 0.8) !important; /* gray-600 with opacity */
+  }
+
+  .modal .copy-btn:hover {
+    background-color: rgba(75, 85, 99, 0.9) !important; /* gray-600 with opacity */
+    transform: translateY(-1px) !important;
+  }
+
+  /* 表格内容文字颜色修复 */
+  .styled-table tbody td {
+    color: #374151 !important; /* gray-700 for light theme */
+  }
+
+  .styled-table tbody tr:hover td {
+    color: #1f2937 !important; /* gray-800 for better contrast on hover */
+  }
+
+  /* 表格头部文字颜色 */
+  .styled-table thead th {
+    color: #374151 !important; /* gray-700 for light theme */
+  }
+
+  /* 状态指示器文字颜色 */
+  .text-gray-300 {
+    color: #6b7280 !important; /* gray-500 for light theme */
+  }
+
+  .text-gray-400 {
+    color: #9ca3af !important; /* gray-400 for light theme */
+  }
+
+  /* 分页文字颜色和对齐 */
+  .pagination-text {
+    color: #374151 !important; /* gray-700 for light theme */
+    display: inline-flex !important;
+    align-items: center !important;
+    line-height: 1.25 !important;
+    vertical-align: middle !important;
+  }
+
+  /* 分页容器对齐优化 */
+  .pagination-container {
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.5rem !important;
+  }
+
+  .pagination-container > * {
+    display: inline-flex !important;
+    align-items: center !important;
+    vertical-align: middle !important;
+  }
+
+  /* Comprehensive button text color fixes */
+  .bg-blue-500, .bg-blue-600, .bg-blue-700,
+  .bg-red-500, .bg-red-600, .bg-red-700, .bg-red-800,
+  .bg-green-500, .bg-green-600, .bg-green-700,
+  .bg-sky-500, .bg-sky-600, .bg-sky-700,
+  .bg-purple-500, .bg-purple-600, .bg-purple-700,
+  .bg-violet-500, .bg-violet-600, .bg-violet-700 {
+    color: #ffffff !important;
+  }
+
+  /* Ensure button children inherit white text */
+  .bg-blue-500 *, .bg-blue-600 *, .bg-blue-700 *,
+  .bg-red-500 *, .bg-red-600 *, .bg-red-700 *, .bg-red-800 *,
+  .bg-green-500 *, .bg-green-600 *, .bg-green-700 *,
+  .bg-sky-500 *, .bg-sky-600 *, .bg-sky-700 *,
+  .bg-purple-500 *, .bg-purple-600 *, .bg-purple-700 *,
+  .bg-violet-500 *, .bg-violet-600 *, .bg-violet-700 * {
+    color: inherit !important;
+  }
+
+  /* Fix primary color focus states - convert purple to blue */
+  .focus\\:border-primary-500:focus,
+  .focus\\:border-primary-600:focus {
+    border-color: #3b82f6 !important; /* blue-500 */
+  }
+
+  .focus\\:ring-primary-200:focus,
+  .focus\\:ring-primary-300:focus {
+    --tw-ring-color: rgba(59, 130, 246, 0.2) !important; /* blue-500 with opacity */
+  }
+
+  /* Override any remaining primary colors */
+  .text-primary-600, .text-primary-500 {
+    color: #3b82f6 !important; /* blue-500 */
+  }
+
+  .bg-primary-600, .bg-primary-500 {
+    background-color: #3b82f6 !important; /* blue-500 */
+  }
+
+  .bg-primary-700:hover, .hover\\:bg-primary-700:hover {
+    background-color: #2563eb !important; /* blue-600 */
+  }
+
+  /* Fix modal button colors - specific overrides for error_logs.html */
+  /* Red buttons in modals */
+  .bg-red-600, button.bg-red-600,
+  .bg-red-700, button.bg-red-700 {
+    background-color: #f87171 !important; /* red-400 - bright light red */
+  }
+
+  .bg-red-600:hover, button.bg-red-600:hover,
+  .bg-red-700:hover, button.bg-red-700:hover,
+  .hover\\:bg-red-700:hover {
+    background-color: #ef4444 !important; /* red-500 - darker bright light red */
+  }
+
+  /* Gray buttons in modals (cancel buttons) */
+  .bg-gray-500, button.bg-gray-500,
+  .bg-gray-600, button.bg-gray-600 {
+    background-color: #e5e7eb !important; /* gray-200 - light gray */
+    color: #374151 !important; /* gray-700 - dark text for contrast */
+  }
+
+  .bg-gray-500:hover, button.bg-gray-500:hover,
+  .bg-gray-600:hover, button.bg-gray-600:hover,
+  .hover\\:bg-gray-600:hover {
+    background-color: #d1d5db !important; /* gray-300 - darker light gray */
+    color: #374151 !important; /* gray-700 - dark text for contrast */
+  }
+
+  /* Blue buttons in modals */
+  .bg-blue-600, button.bg-blue-600,
+  .bg-blue-700, button.bg-blue-700 {
+    background-color: #3b82f6 !important; /* blue-500 - light blue */
+  }
+
+  .bg-blue-600:hover, button.bg-blue-600:hover,
+  .bg-blue-700:hover, button.bg-blue-700:hover,
+  .hover\\:bg-blue-700:hover {
+    background-color: #2563eb !important; /* blue-600 - darker light blue */
+  }
+
+  /* Sky buttons in modals */
+  .bg-sky-600, button.bg-sky-600,
+  .bg-sky-700, button.bg-sky-700 {
+    background-color: #3b82f6 !important; /* blue-500 - light blue (change sky to light blue) */
+  }
+
+  .bg-sky-600:hover, button.bg-sky-600:hover,
+  .bg-sky-700:hover, button.bg-sky-700:hover,
+  .hover\\:bg-sky-700:hover {
+    background-color: #2563eb !important; /* blue-600 - darker light blue */
+  }
+
+  /* Specific fixes for delete confirmation modal buttons */
+  #deleteConfirmModal .bg-red-600, #deleteConfirmModal button.bg-red-600 {
+    background-color: #f87171 !important; /* red-400 - bright light red */
+    color: #ffffff !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  #deleteConfirmModal .bg-red-600:hover, #deleteConfirmModal button.bg-red-600:hover {
+    background-color: #ef4444 !important; /* red-500 - darker bright light red */
+  }
+
+  #deleteConfirmModal .bg-gray-500, #deleteConfirmModal button.bg-gray-500 {
+    background-color: #e5e7eb !important; /* gray-200 - light gray */
+    color: #374151 !important; /* gray-700 - dark text for contrast */
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  #deleteConfirmModal .bg-gray-500:hover, #deleteConfirmModal button.bg-gray-500:hover {
+    background-color: #d1d5db !important; /* gray-300 - darker light gray */
+    color: #374151 !important; /* gray-700 - dark text for contrast */
+  }
+
+  /* Ensure all modal buttons have proper text centering */
+  .modal button {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    text-align: center !important;
+  }
+</style>
+{% endblock %} {% block content %}
+<div class="container mx-auto px-4">
+  <div
+    class="rounded-2xl shadow-xl p-6 md:p-8"
+    style="
+      background-color: rgba(80, 60, 160, 0.3);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1px solid rgba(150, 130, 230, 0.3);
+    "
+  >
+    <h1
+      class="text-3xl font-extrabold text-center text-gray-800 mb-4"
+    >
+      <img
+        src="{{ static_url('icons/logo.png') }}"
+        alt="OpenAI Balance Logo"
+        class="h-9 inline-block align-middle mr-2"
+      />
+      OpenAI Balance - 错误日志
+    </h1>
+
+    <!-- Navigation Tabs -->
+    <div class="nav-buttons-container flex justify-center mb-8 overflow-x-auto gap-2">
+      <a
+        href="/config"
+        class="nav-link whitespace-nowrap flex items-center justify-center gap-2 px-6 py-3 font-medium rounded-lg text-gray-700 hover:text-gray-900 transition-all duration-200"
+        style="background-color: rgba(229, 231, 235, 0.8)"
+      >
+        <i class="fas fa-cog"></i> 配置编辑
+      </a>
+      <a
+        href="/keys"
+        class="nav-link whitespace-nowrap flex items-center justify-center gap-2 px-6 py-3 font-medium rounded-lg text-gray-700 hover:text-gray-900 transition-all duration-200"
+        style="background-color: rgba(229, 231, 235, 0.8)"
+      >
+        <i class="fas fa-tachometer-alt"></i> 监控面板
+      </a>
+      <a
+        href="/logs"
+        class="main-nav-btn whitespace-nowrap flex items-center justify-center gap-2 px-6 py-3 font-medium rounded-lg shadow-md hover:shadow-lg transition-all duration-200"
+        style="background-color: #3b82f6 !important; color: #ffffff !important;"
+      >
+        <i class="fas fa-exclamation-triangle"></i> 错误日志
+      </a>
+    </div>
+
+    <!-- 主内容区域 -->
+    <div
+      class="rounded-xl p-6 shadow-lg animate-fade-in"
+      style="
+        background-color: rgba(70, 50, 150, 0.5);
+        backdrop-filter: blur(5px);
+        -webkit-backdrop-filter: blur(5px);
+        border: 1px solid rgba(0, 0, 0, 0.08);
+      "
+    >
+      <h2
+        class="text-xl font-bold mb-6 pb-3 border-b flex items-center gap-2 text-gray-100 border-violet-300 border-opacity-30"
+      >
+        <i class="fas fa-bug text-violet-400"></i> 错误日志列表
+      </h2>
+
+      <!-- 搜索与操作控件 -->
+      <div
+        class="grid grid-cols-1 lg:grid-cols-[1fr_auto] items-center gap-4 mb-6 mobile-buttons-container"
+      >
+        <div
+          class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 w-full mobile-search-controls"
+        >
+          <input
+            type="text"
+            id="keySearch"
+            placeholder="搜索密钥 (部分)"
+            class="px-3 py-1 rounded-lg form-input-themed"
+          />
+          <input
+            type="text"
+            id="errorSearch"
+            placeholder="搜索错误类型/日志"
+            class="px-3 py-1 rounded-lg form-input-themed"
+          />
+          <input
+            type="text"
+            id="errorCodeSearch"
+            placeholder="搜索错误码"
+            class="px-3 py-1 rounded-lg form-input-themed"
+          />
+          <div
+            class="grid grid-cols-1 sm:grid-cols-2 gap-2 col-span-1 sm:col-span-2 lg:col-span-3 mt-2"
+          >
+            <div class="flex items-center gap-2">
+              <label class="text-sm text-gray-300 whitespace-nowrap"
+                >开始时间:</label
+              >
+              <input
+                type="datetime-local"
+                id="startDate"
+                class="px-3 py-1 rounded-lg text-sm w-full form-input-themed"
+              />
+            </div>
+            <div class="flex items-center gap-2">
+              <label class="text-sm text-gray-300 whitespace-nowrap"
+                >结束时间:</label
+              >
+              <input
+                type="datetime-local"
+                id="endDate"
+                class="px-3 py-1 rounded-lg text-sm w-full form-input-themed"
+              />
+            </div>
+          </div>
+        </div>
+        <div class="flex items-center gap-3 flex-shrink-0 buttons-container-responsive">
+          <button
+            id="searchBtn"
+            class="flex items-center justify-center px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-all duration-200 shadow-sm hover:shadow-md whitespace-nowrap"
+          >
+            <i class="fas fa-search mr-1.5"></i>搜索
+          </button>
+          <button
+            id="copySelectedKeysBtn"
+            class="flex items-center justify-center px-4 py-1.5 bg-sky-600 hover:bg-sky-700 text-white rounded-lg font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm hover:shadow-md whitespace-nowrap"
+            disabled
+          >
+            <i class="far fa-copy mr-1.5"></i>复制
+          </button>
+          <button
+            id="deleteSelectedBtn"
+            class="flex items-center justify-center px-4 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm hover:shadow-md whitespace-nowrap"
+            disabled
+          >
+            <i class="fas fa-trash-alt mr-1.5"></i>删除
+          </button>
+          <button
+            id="deleteAllLogsBtn"
+            class="flex items-center justify-center px-4 py-1.5 bg-red-700 hover:bg-red-800 text-white rounded-lg font-medium transition-all duration-200 shadow-sm hover:shadow-md whitespace-nowrap"
+            title="清空所有错误日志"
+          >
+            <i class="fas fa-dumpster-fire mr-1.5"></i>清空全部
+          </button>
+        </div>
+      </div>
+
+      <!-- 表格容器 -->
+      <div
+        class="overflow-x-auto rounded-lg border mb-6"
+        style="border-color: rgba(0, 0, 0, 0.12)"
+      >
+        <table class="styled-table w-full min-w-full text-sm">
+          <thead>
+            <tr class="text-left">
+              <th
+                class="px-3 py-3 font-semibold rounded-tl-lg w-12 text-center"
+              >
+                <input
+                  type="checkbox"
+                  id="selectAllCheckbox"
+                  class="form-checkbox h-4 w-4 text-blue-500 border-gray-500 rounded focus:ring-blue-500 bg-transparent"
+                />
+              </th>
+              <th
+                class="px-5 py-3 font-semibold text-gray-700 cursor-pointer"
+                id="sortById"
+              >
+                ID <i class="fas fa-sort ml-1"></i>
+              </th>
+              <th class="px-5 py-3 font-semibold text-gray-700">Gemini密钥</th>
+              <th class="px-5 py-3 font-semibold text-gray-700">错误类型</th>
+              <th class="px-5 py-3 font-semibold text-gray-700">错误码</th>
+              <th class="px-5 py-3 font-semibold text-gray-700">模型名称</th>
+              <th class="px-5 py-3 font-semibold text-gray-700">请求时间</th>
+              <th
+                class="px-5 py-3 font-semibold text-gray-700 rounded-tr-lg text-center"
+              >
+                操作
+              </th>
+            </tr>
+          </thead>
+          <tbody
+            id="errorLogsTable"
+            class="divide-y"
+            style="border-color: rgba(0, 0, 0, 0.08)"
+          >
+            <!-- 错误日志数据将通过JavaScript动态加载 -->
+          </tbody>
+        </table>
+      </div>
+
+      <!-- 状态指示器 -->
+      <div
+        id="loadingIndicator"
+        class="flex items-center justify-center p-8 hidden"
+      >
+        <div
+          class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"
+        ></div>
+        <p class="ml-4 text-lg text-gray-600 font-medium">加载中，请稍候...</p>
+      </div>
+
+      <div id="noDataMessage" class="text-center py-12 text-gray-600 hidden">
+        <i class="fas fa-inbox text-5xl mb-3"></i>
+        <p class="text-lg">暂无错误日志数据</p>
+      </div>
+
+      <div
+        id="errorMessage"
+        class="p-4 rounded-lg font-medium text-center hidden"
+        style="background-color: rgba(220, 38, 38, 0.2); color: #fca5a5"
+      >
+        <i class="fas fa-exclamation-circle mr-2"></i>
+        加载错误日志失败，请稍后重试。
+      </div>
+
+      <!-- 分页与每页显示控件 -->
+      <div
+        class="flex flex-col sm:flex-row justify-between items-center mt-6 gap-4"
+      >
+        <div class="pagination-container text-sm text-gray-700">
+          <label for="pageSize" class="font-medium pagination-text"
+            >每页显示:</label
+          >
+          <select
+            id="pageSize"
+            class="rounded-md border focus:ring focus:border-blue-500 px-2 py-1 text-sm"
+          >
+            <option value="10">10</option>
+            <option value="20" selected>20</option>
+            <option value="50">50</option>
+            <option value="100">100</option>
+          </select>
+          <span class="pagination-text">条</span>
+        </div>
+        <div class="flex items-center gap-4">
+          <ul class="pagination flex items-center gap-1" id="pagination">
+            <!-- 分页控件将通过JavaScript动态加载 -->
+          </ul>
+          <div class="flex items-center gap-1">
+            <input
+              type="number"
+              id="pageInput"
+              min="1"
+              class="w-16 px-2 py-1 rounded-md text-sm form-input-themed"
+              placeholder="页码"
+            />
+            <button
+              id="goToPageBtn"
+              class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-md transition"
+            >
+              跳转
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Scroll buttons are now in base.html -->
+<div class="scroll-buttons">
+  <button class="scroll-button" onclick="scrollToTop()" title="回到顶部">
+    <i class="fas fa-chevron-up"></i>
+  </button>
+  <button class="scroll-button" onclick="scrollToBottom()" title="滚动到底部">
+    <i class="fas fa-chevron-down"></i>
+  </button>
+</div>
+
+<!-- Notification component is now in base.html (use id="notification") -->
+<div id="notification" class="notification"></div>
+<!-- Footer is now in base.html -->
+
+<!-- 日志详情模态框 -->
+<div id="logDetailModal" class="modal">
+  <div
+    class="w-full max-w-6xl mx-auto rounded-2xl shadow-2xl overflow-hidden animate-fade-in"
+    style="
+      background-color: #ffffff;
+      color: #374151;
+      border: 1px solid #e5e7eb;
+    "
+  >
+    <div class="p-6">
+      <div
+        class="flex justify-between items-center pb-4 mb-4"
+        style="border-bottom: 1px solid #e5e7eb"
+      >
+        <h2 class="text-xl font-bold text-gray-800">错误日志详情</h2>
+        <button
+          id="closeLogDetailModalBtn"
+          class="text-gray-600 hover:text-gray-800 text-xl"
+        >
+          &times;
+        </button>
+      </div>
+
+      <div class="space-y-4 max-h-[60vh] overflow-y-auto p-1">
+        <div
+          class="p-4 rounded-lg relative group"
+          style="background-color: #f8fafc"
+        >
+          <h6 class="text-sm font-semibold text-blue-600 mb-1">
+            Gemini密钥:
+          </h6>
+          <pre
+            id="modalGeminiKey"
+            class="font-mono text-sm p-3 rounded overflow-x-auto"
+            style="background-color: #f1f5f9; color: #374151"
+          ></pre>
+          <button
+            class="copy-btn absolute top-2 right-2 hover:bg-gray-200 text-gray-600 p-1.5 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+            style="background-color: #e2e8f0"
+            data-target="modalGeminiKey"
+            title="复制密钥"
+          >
+            <i class="far fa-copy"></i>
+          </button>
+        </div>
+
+        <div
+          class="p-4 rounded-lg relative group"
+          style="background-color: #f8fafc"
+        >
+          <h6 class="text-sm font-semibold text-blue-600 mb-1">错误类型:</h6>
+          <p id="modalErrorType" class="text-red-600 font-medium pr-8"></p>
+          <button
+            class="copy-btn absolute top-2 right-2 hover:bg-gray-200 text-gray-600 p-1.5 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+            style="background-color: #e2e8f0"
+            data-target="modalErrorType"
+            title="复制错误类型"
+          >
+            <i class="far fa-copy"></i>
+          </button>
+        </div>
+
+        <div
+          class="p-4 rounded-lg relative group"
+          style="background-color: #f8fafc"
+        >
+          <h6 class="text-sm font-semibold text-blue-600 mb-1">错误日志:</h6>
+          <pre
+            id="modalErrorLog"
+            class="font-mono text-sm p-3 rounded overflow-x-auto whitespace-pre-wrap"
+            style="background-color: #f1f5f9; color: #374151"
+          ></pre>
+          <button
+            class="copy-btn absolute top-2 right-2 hover:bg-gray-200 text-gray-600 p-1.5 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+            style="background-color: #e2e8f0"
+            data-target="modalErrorLog"
+            title="复制错误日志"
+          >
+            <i class="far fa-copy"></i>
+          </button>
+        </div>
+
+        <div
+          class="p-4 rounded-lg relative group"
+          style="background-color: #f8fafc"
+        >
+          <h6 class="text-sm font-semibold text-blue-600 mb-1">请求消息:</h6>
+          <pre
+            id="modalRequestMsg"
+            class="font-mono text-sm p-3 rounded overflow-x-auto whitespace-pre-wrap"
+            style="background-color: #f1f5f9; color: #374151"
+          ></pre>
+          <button
+            class="copy-btn absolute top-2 right-2 hover:bg-gray-200 text-gray-600 p-1.5 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+            style="background-color: #e2e8f0"
+            data-target="modalRequestMsg"
+            title="复制请求消息"
+          >
+            <i class="far fa-copy"></i>
+          </button>
+        </div>
+
+        <div
+          class="p-4 rounded-lg relative group"
+          style="background-color: #f8fafc"
+        >
+          <h6 class="text-sm font-semibold text-blue-600 mb-1">模型名称:</h6>
+          <p id="modalModelName" class="font-medium pr-8 text-gray-700"></p>
+          <button
+            class="copy-btn absolute top-2 right-2 hover:bg-gray-200 text-gray-600 p-1.5 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+            style="background-color: #e2e8f0"
+            data-target="modalModelName"
+            title="复制模型名称"
+          >
+            <i class="far fa-copy"></i>
+          </button>
+        </div>
+
+        <div
+          class="p-4 rounded-lg relative group"
+          style="background-color: #f8fafc"
+        >
+          <h6 class="text-sm font-semibold text-blue-600 mb-1">请求时间:</h6>
+          <p id="modalRequestTime" class="font-medium pr-8 text-gray-700"></p>
+          <button
+            class="copy-btn absolute top-2 right-2 hover:bg-gray-200 text-gray-600 p-1.5 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+            style="background-color: #e2e8f0"
+            data-target="modalRequestTime"
+            title="复制请求时间"
+          >
+            <i class="far fa-copy"></i>
+          </button>
+        </div>
+      </div>
+
+      <div
+        class="flex justify-end mt-6 pt-4"
+        style="border-top: 1px solid #e5e7eb"
+      >
+        <button
+          type="button"
+          id="closeModalFooterBtn"
+          class="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-lg font-medium transition"
+        >
+          关闭
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 删除确认模态框 -->
+<div id="deleteConfirmModal" class="modal">
+  <div
+    class="w-full max-w-md mx-auto rounded-xl shadow-xl overflow-hidden animate-fade-in"
+    style="
+      background-color: #ffffff;
+      color: #374151;
+      border: 1px solid #e5e7eb;
+    "
+  >
+    <div class="p-6">
+      <div
+        class="flex justify-between items-center pb-3 mb-4"
+        style="border-bottom: 1px solid #e5e7eb"
+      >
+        <h2 class="text-lg font-semibold text-gray-800">确认删除</h2>
+        <button
+          id="closeDeleteConfirmModalBtn"
+          class="text-gray-600 hover:text-gray-800 text-xl"
+        >
+          &times;
+        </button>
+      </div>
+      <p id="deleteConfirmMessage" class="text-gray-700 mb-6">
+        你确定要删除选中的项目吗？此操作不可恢复！
+      </p>
+      <div class="flex justify-end gap-3">
+        <button
+          id="cancelDeleteBtn"
+          type="button"
+          class="bg-gray-500 hover:bg-gray-600 text-white px-5 py-2 rounded-lg font-medium transition"
+        >
+          取消
+        </button>
+        <button
+          id="confirmDeleteBtn"
+          type="button"
+          class="bg-red-600 hover:bg-red-700 text-white px-5 py-2 rounded-lg font-medium transition"
+        >
+          确认删除
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %} {% block body_scripts %}
+<script src="{{ static_url('js/error_logs.js') }}"></script>
+<script>
+  // error_logs.html specific JS initialization (if any)
+  // e.g., initialize date pickers or other elements if needed
+  // The main logic is in error_logs.js
+</script>
+{% endblock %}
