@@ -138,3 +138,9 @@ git push origin v1.3.0
 - 所有函数参数和返回值使用类型注解
 - 所有 I/O 操作使用 `async/await`
 - 使用 `asyncio.Lock()` 保护共享状态
+
+## Git 提交规范
+
+- **不要在提交信息中署名 Claude 或添加 Co-Authored-By**
+- 提交信息使用简洁的英文描述
+- 不要添加 emoji 或 "Generated with Claude Code" 等标记
