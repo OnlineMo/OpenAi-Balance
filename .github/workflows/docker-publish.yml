@@ -51,3 +51,28 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
           repository: ${{ env.DOCKERHUB_REPO }}
           readme-filepath: ./README.md
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Release ${{ github.ref_name }}
+          body: |
+            ## Docker Image
+
+            ```bash
+            docker pull onlinemo/openai-balance:${{ steps.version.outputs.VERSION }}
+            ```
+
+            Or use the latest tag:
+            ```bash
+            docker pull onlinemo/openai-balance:latest
+            ```
+
+            ## What's Changed
+
+            See [README](https://github.com/OnlineMo/OpenAi-Balance#readme) for full documentation.
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

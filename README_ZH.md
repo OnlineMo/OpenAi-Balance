@@ -4,6 +4,7 @@
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.9%2B-blue.svg" alt="Python"></a>
   <a href="https://fastapi.tiangolo.com/"><img src="https://img.shields.io/badge/FastAPI-0.100%2B-green.svg" alt="FastAPI"></a>
   <a href="https://www.uvicorn.org/"><img src="https://img.shields.io/badge/Uvicorn-running-purple.svg" alt="Uvicorn"></a>
+  <a href="https://hub.docker.com/r/onlinemo/openai-balance"><img src="https://img.shields.io/docker/pulls/onlinemo/openai-balance.svg" alt="Docker Pulls"></a>
   <a href="https://github.com/OnlineMo/OpenAi-Balance"><img src="https://img.shields.io/github/stars/OnlineMo/OpenAi-Balance?style=social" alt="GitHub Stars"></a>
 </p>
 
@@ -77,9 +78,25 @@ app/
     docker-compose up -d
     ```
 
-### 方式二：使用 Docker 命令
+### 方式二：从 Docker Hub 拉取 (推荐)
 
-1.  **构建或拉取镜像**:
+1.  **拉取镜像**:
+    ```bash
+    docker pull onlinemo/openai-balance:latest
+    ```
+2.  **准备 `.env` 文件**:
+    从 `.env.example` 复制一份并重命名为 `.env`，然后根据需求修改配置。
+3.  **运行容器**:
+    ```bash
+    docker run -d -p 8000:8000 --name openai-balance \
+    -v ./data:/app/data \
+    --env-file .env \
+    onlinemo/openai-balance:latest
+    ```
+
+### 方式三：从源码构建
+
+1.  **构建镜像**:
     ```bash
     docker build -t openai-balance .
     ```
@@ -93,7 +110,7 @@ app/
     openai-balance:latest
     ```
 
-### 方式三：本地运行 (适用于开发)
+### 方式四：本地运行 (适用于开发)
 
 **Windows:**
 ```bash

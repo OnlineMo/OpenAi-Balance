@@ -6,6 +6,7 @@
   <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.9%2B-blue.svg" alt="Python"></a>
   <a href="https://fastapi.tiangolo.com/"><img src="https://img.shields.io/badge/FastAPI-0.100%2B-green.svg" alt="FastAPI"></a>
   <a href="https://www.uvicorn.org/"><img src="https://img.shields.io/badge/Uvicorn-running-purple.svg" alt="Uvicorn"></a>
+  <a href="https://hub.docker.com/r/onlinemo/openai-balance"><img src="https://img.shields.io/docker/pulls/onlinemo/openai-balance.svg" alt="Docker Pulls"></a>
   <a href="https://github.com/OnlineMo/OpenAi-Balance"><img src="https://img.shields.io/github/stars/OnlineMo/OpenAi-Balance?style=social" alt="GitHub Stars"></a>
 </p>
 
@@ -79,9 +80,25 @@ app/
     docker-compose up -d
     ```
 
-### Option 2: Docker Command
+### Option 2: Docker Hub (Recommended)
 
-1.  **Build or Pull Image**:
+1.  **Pull Image from Docker Hub**:
+    ```bash
+    docker pull onlinemo/openai-balance:latest
+    ```
+2.  **Prepare `.env` file**:
+    Copy `.env.example` to `.env` and configure it.
+3.  **Run Container**:
+    ```bash
+    docker run -d -p 8000:8000 --name openai-balance \
+    -v ./data:/app/data \
+    --env-file .env \
+    onlinemo/openai-balance:latest
+    ```
+
+### Option 3: Build from Source
+
+1.  **Build Image**:
     ```bash
     docker build -t openai-balance .
     ```
@@ -95,7 +112,7 @@ app/
     openai-balance:latest
     ```
 
-### Option 3: Local Development
+### Option 4: Local Development
 
 **Windows:**
 ```bash
