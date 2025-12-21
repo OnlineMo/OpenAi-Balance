@@ -2649,15 +2649,26 @@ async function loadProviders() {
     const data = await fetchAPI('/api/keys/providers');
     providersData = data;
 
-    // 更新默认提供商计数
-    const defaultCount = document.getElementById('defaultProviderCount');
-    if (defaultCount && data.default) {
-      const total = data.default.valid_keys_count + data.default.invalid_keys_count;
-      defaultCount.textContent = `(${total})`;
+    const container = document.getElementById('providerFilterContainer');
+    const defaultBtn = container ? container.querySelector('[data-provider="default"]') : null;
+    const hasCustomProviders = data.providers && Object.keys(data.providers).length > 0;
+
+    // 如果有自定义提供商，隐藏默认按钮；否则显示
+    if (defaultBtn) {
+      if (hasCustomProviders) {
+        defaultBtn.style.display = 'none';
+      } else {
+        defaultBtn.style.display = '';
+        // 更新默认提供商计数
+        const defaultCount = document.getElementById('defaultProviderCount');
+        if (defaultCount && data.default) {
+          const total = data.default.valid_keys_count + data.default.invalid_keys_count;
+          defaultCount.textContent = `(${total})`;
+        }
+      }
     }
 
     // 添加其他提供商按钮
-    const container = document.getElementById('providerFilterContainer');
     if (container && data.providers) {
       // 移除现有的动态添加的按钮
       const existingButtons = container.querySelectorAll('.provider-filter-btn[data-provider]:not([data-provider="all"]):not([data-provider="default"])');

@@ -24,6 +24,7 @@ async def get_keys_paginated(
 ):
     """
     Get paginated, filtered, and searched keys.
+    当配置了自定义提供商时，不返回默认提供商的密钥。
     """
     auth_token = request.cookies.get("auth_token")
     if not auth_token or not verify_auth_token(auth_token):
@@ -33,25 +34,29 @@ async def get_keys_paginated(
     # 格式: {key: {"fail_count": int, "provider": str}}
     all_keys_info = {}
 
+    # 获取所有自定义提供商的密钥状态
+    provider_key_manager = await get_provider_key_manager()
+    providers_status = await provider_key_manager.get_all_providers_status()
+    has_custom_providers = len(providers_status) > 0
+
     # 如果是 "all" 或未指定，获取所有提供商的密钥
     if not provider or provider == "all":
-        # 获取默认提供商的密钥
-        default_keys = await key_manager.get_all_keys_with_fail_count()
-        if status == "valid":
-            for key, fail_count in default_keys["valid_keys"].items():
-                all_keys_info[key] = {"fail_count": fail_count, "provider": "default"}
-        elif status == "invalid":
-            for key, fail_count in default_keys["invalid_keys"].items():
-                all_keys_info[key] = {"fail_count": fail_count, "provider": "default"}
-        else:
-            for key, fail_count in default_keys["valid_keys"].items():
-                all_keys_info[key] = {"fail_count": fail_count, "provider": "default"}
-            for key, fail_count in default_keys["invalid_keys"].items():
-                all_keys_info[key] = {"fail_count": fail_count, "provider": "default"}
+        # 只有在没有自定义提供商时才获取默认提供商的密钥
+        if not has_custom_providers:
+            default_keys = await key_manager.get_all_keys_with_fail_count()
+            if status == "valid":
+                for key, fail_count in default_keys["valid_keys"].items():
+                    all_keys_info[key] = {"fail_count": fail_count, "provider": "default"}
+            elif status == "invalid":
+                for key, fail_count in default_keys["invalid_keys"].items():
+                    all_keys_info[key] = {"fail_count": fail_count, "provider": "default"}
+            else:
+                for key, fail_count in default_keys["valid_keys"].items():
+                    all_keys_info[key] = {"fail_count": fail_count, "provider": "default"}
+                for key, fail_count in default_keys["invalid_keys"].items():
+                    all_keys_info[key] = {"fail_count": fail_count, "provider": "default"}
 
         # 获取所有自定义提供商的密钥
-        provider_key_manager = await get_provider_key_manager()
-        providers_status = await provider_key_manager.get_all_providers_status()
         for provider_name, pstatus in providers_status.items():
             # 跳过名为 "default" 的提供商（避免重复）
             if provider_name.lower() == "default":
@@ -69,22 +74,22 @@ async def get_keys_paginated(
                 for key, fail_count in keys_status.get("invalid_keys", {}).items():
                     all_keys_info[key] = {"fail_count": fail_count, "provider": provider_name}
     elif provider == "default":
-        # 只获取默认提供商的密钥
-        default_keys = await key_manager.get_all_keys_with_fail_count()
-        if status == "valid":
-            for key, fail_count in default_keys["valid_keys"].items():
-                all_keys_info[key] = {"fail_count": fail_count, "provider": "default"}
-        elif status == "invalid":
-            for key, fail_count in default_keys["invalid_keys"].items():
-                all_keys_info[key] = {"fail_count": fail_count, "provider": "default"}
-        else:
-            for key, fail_count in default_keys["valid_keys"].items():
-                all_keys_info[key] = {"fail_count": fail_count, "provider": "default"}
-            for key, fail_count in default_keys["invalid_keys"].items():
-                all_keys_info[key] = {"fail_count": fail_count, "provider": "default"}
+        # 只有在没有自定义提供商时才获取默认提供商的密钥
+        if not has_custom_providers:
+            default_keys = await key_manager.get_all_keys_with_fail_count()
+            if status == "valid":
+                for key, fail_count in default_keys["valid_keys"].items():
+                    all_keys_info[key] = {"fail_count": fail_count, "provider": "default"}
+            elif status == "invalid":
+                for key, fail_count in default_keys["invalid_keys"].items():
+                    all_keys_info[key] = {"fail_count": fail_count, "provider": "default"}
+            else:
+                for key, fail_count in default_keys["valid_keys"].items():
+                    all_keys_info[key] = {"fail_count": fail_count, "provider": "default"}
+                for key, fail_count in default_keys["invalid_keys"].items():
+                    all_keys_info[key] = {"fail_count": fail_count, "provider": "default"}
     else:
         # 获取指定提供商的密钥
-        provider_key_manager = await get_provider_key_manager()
         manager = await provider_key_manager.get_manager(provider)
         if not manager:
             return JSONResponse(status_code=404, content={"detail": f"Provider '{provider}' not found"})
@@ -167,32 +172,33 @@ async def get_all_providers_keys(
 ):
     """
     Get all keys grouped by provider.
+    当配置了自定义提供商时，不返回默认提供商的密钥。
     """
     auth_token = request.cookies.get("auth_token")
     if not auth_token or not verify_auth_token(auth_token):
         return JSONResponse(status_code=401, content={"detail": "Unauthorized"})
 
-    result = {
-        "default": {
-            "name": "default",
-            "path": "",
-            "base_url": "",
-            "keys_status": await key_manager.get_all_keys_with_fail_count(),
-            "total_keys": len(key_manager.api_keys),
-            "valid_keys_count": 0,
-            "invalid_keys_count": 0,
-        },
-        "providers": {}
-    }
-
-    # 计算默认提供商的有效/无效密钥数
-    default_status = result["default"]["keys_status"]
-    result["default"]["valid_keys_count"] = len(default_status.get("valid_keys", {}))
-    result["default"]["invalid_keys_count"] = len(default_status.get("invalid_keys", {}))
-
     # 获取所有提供商的密钥状态
     provider_key_manager = await get_provider_key_manager()
     providers_status = await provider_key_manager.get_all_providers_status()
+    has_custom_providers = len(providers_status) > 0
+
+    result = {
+        "providers": {}
+    }
+
+    # 只有在没有自定义提供商时才返回默认提供商
+    if not has_custom_providers:
+        default_keys_status = await key_manager.get_all_keys_with_fail_count()
+        result["default"] = {
+            "name": "default",
+            "path": "",
+            "base_url": "",
+            "keys_status": default_keys_status,
+            "total_keys": len(key_manager.api_keys),
+            "valid_keys_count": len(default_keys_status.get("valid_keys", {})),
+            "invalid_keys_count": len(default_keys_status.get("invalid_keys", {})),
+        }
 
     for provider_name, status in providers_status.items():
         result["providers"][provider_name] = {
@@ -328,38 +334,41 @@ async def get_keys_stats(
 ):
     """
     获取所有提供商的密钥统计信息。
+    当配置了自定义提供商时，不统计默认提供商的密钥。
     """
     auth_token = request.cookies.get("auth_token")
     if not auth_token or not verify_auth_token(auth_token):
         return JSONResponse(status_code=401, content={"detail": "Unauthorized"})
 
-    # 默认提供商统计
-    default_keys = await key_manager.get_all_keys_with_fail_count()
-    default_valid = len(default_keys.get("valid_keys", {}))
-    default_invalid = len(default_keys.get("invalid_keys", {}))
-
-    total_keys = default_valid + default_invalid
-    total_valid = default_valid
-    total_invalid = default_invalid
-
     # 获取所有自定义提供商的统计
     provider_key_manager = await get_provider_key_manager()
     providers_status = await provider_key_manager.get_all_providers_status()
+    has_custom_providers = len(providers_status) > 0
+
+    total_keys = 0
+    total_valid = 0
+    total_invalid = 0
+
+    # 只有在没有自定义提供商时才统计默认提供商
+    default_valid = 0
+    default_invalid = 0
+    if not has_custom_providers:
+        default_keys = await key_manager.get_all_keys_with_fail_count()
+        default_valid = len(default_keys.get("valid_keys", {}))
+        default_invalid = len(default_keys.get("invalid_keys", {}))
+        total_keys = default_valid + default_invalid
+        total_valid = default_valid
+        total_invalid = default_invalid
 
     for provider_name, status in providers_status.items():
         total_keys += status.get("total_keys", 0)
         total_valid += status.get("valid_keys_count", 0)
         total_invalid += status.get("invalid_keys_count", 0)
 
-    return {
+    result = {
         "total_keys": total_keys,
         "valid_keys": total_valid,
         "invalid_keys": total_invalid,
-        "default": {
-            "total": default_valid + default_invalid,
-            "valid": default_valid,
-            "invalid": default_invalid,
-        },
         "providers": {
             name: {
                 "total": status.get("total_keys", 0),
@@ -369,6 +378,16 @@ async def get_keys_stats(
             for name, status in providers_status.items()
         }
     }
+
+    # 只有在没有自定义提供商时才返回默认提供商统计
+    if not has_custom_providers:
+        result["default"] = {
+            "total": default_valid + default_invalid,
+            "valid": default_valid,
+            "invalid": default_invalid,
+        }
+
+    return result
 
 
 @router.post("/api/keys/verify-batch")
