@@ -1,3 +1,25 @@
+# =============================================================================
+# Docker Build and Push Workflow
+# =============================================================================
+#
+# 功能:
+#   - 构建多平台 Docker 镜像 (linux/amd64, linux/arm64)
+#   - 推送到 Docker Hub
+#   - 自动创建 GitHub Release 并生成变更日志
+#
+# 触发方式:
+#   1. 自动触发: 推送 v* 格式的 tag (如 v1.3.0)
+#      git tag v1.3.0 && git push origin v1.3.0
+#
+#   2. 手动触发: Actions 页面 -> Run workflow -> 输入版本号
+#
+# 所需 Secrets:
+#   - DOCKERHUB_USERNAME: Docker Hub 用户名
+#   - DOCKERHUB_TOKEN: Docker Hub 访问令牌
+#   - RELEASE_TOKEN (可选): GitHub PAT，用于以用户名义发布 Release
+#
+# =============================================================================
+
 name: Build and Push Docker Image
 
 on:
