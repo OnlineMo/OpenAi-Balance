@@ -111,7 +111,7 @@ app.include_router(openai_compatiable_routes.router)
 - 构建多平台镜像（linux/amd64, linux/arm64）
 - 推送到 `onlinemo/openai-balance:版本号` 和 `onlinemo/openai-balance:latest`
 - 使用 GitHub Actions 缓存加速构建
-- 自动更新 Docker Hub 仓库描述
+- 自动创建 GitHub Release
 
 **所需 Secrets:**
 - `DOCKERHUB_USERNAME` - Docker Hub 用户名
