@@ -138,6 +138,21 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
 ---
 
+## 🧪 运行测试
+
+```bash
+# 运行所有测试
+python -m pytest tests/ -v
+
+# 运行代理和 Key 绑定测试
+python -m pytest tests/test_proxy.py -v
+
+# 运行 Key 脱敏测试
+python -m pytest tests/test_key_redaction.py -v
+```
+
+---
+
 ## ⚙️ API 端点
 
 ### OpenAI API 格式

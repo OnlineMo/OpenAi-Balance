@@ -108,14 +108,16 @@ app.include_router(openai_compatiable_routes.router)
 
 **功能:**
 - 当推送 `v*` 格式的标签时自动触发（如 `v1.2.0`）
+- 支持手动触发（Actions 页面 -> Run workflow）
 - 构建多平台镜像（linux/amd64, linux/arm64）
 - 推送到 `onlinemo/openai-balance:版本号` 和 `onlinemo/openai-balance:latest`
 - 使用 GitHub Actions 缓存加速构建
-- 自动创建 GitHub Release
+- 自动创建 GitHub Release 并生成变更日志
 
 **所需 Secrets:**
 - `DOCKERHUB_USERNAME` - Docker Hub 用户名
 - `DOCKERHUB_TOKEN` - Docker Hub 访问令牌
+- `RELEASE_TOKEN` (可选) - GitHub PAT，用于以用户名义发布 Release
 
 **发布新版本:**
 ```bash
@@ -131,6 +133,24 @@ git push
 git tag v1.3.0
 git push origin v1.3.0
 ```
+
+## 测试
+
+**运行测试:**
+```bash
+# 运行所有测试
+python -m pytest tests/ -v
+
+# 运行代理和 Key 绑定测试
+python -m pytest tests/test_proxy.py -v
+
+# 运行 Key 脱敏测试
+python -m pytest tests/test_key_redaction.py -v
+```
+
+**测试文件:**
+- `tests/test_proxy.py` - 代理管理和 Key 绑定关系测试（36 个测试用例）
+- `tests/test_key_redaction.py` - API Key 脱敏功能测试
 
 ## 代码规范
 

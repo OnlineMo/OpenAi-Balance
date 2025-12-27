@@ -140,6 +140,21 @@ Access the application at `http://localhost:8000`.
 
 ---
 
+## 🧪 Running Tests
+
+```bash
+# Run all tests
+python -m pytest tests/ -v
+
+# Run proxy and key binding tests
+python -m pytest tests/test_proxy.py -v
+
+# Run key redaction tests
+python -m pytest tests/test_key_redaction.py -v
+```
+
+---
+
 ## ⚙️ API Endpoints
 
 ### OpenAI API Format
