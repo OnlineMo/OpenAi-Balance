@@ -257,7 +257,6 @@ $RECYCLE.BIN/
 
 # Custom rules (everything added below won't be overriden by 'Generate .gitignore File' if you use 'Update' option)
 
-tests/
 default_db
 
 # 数据目录 / Data directory
