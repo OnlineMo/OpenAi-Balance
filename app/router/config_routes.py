@@ -226,6 +226,41 @@ async def clear_proxy_cache(request: Request):
         raise HTTPException(status_code=500, detail=f"Clear cache failed: {str(e)}")
 
 
+@router.post("/proxy/delete-unavailable")
+async def delete_unavailable_proxies(batch_request: ProxyBatchCheckRequest, request: Request):
+    """检测并删除所有不可用的代理"""
+    auth_token = request.cookies.get("auth_token")
+    if not auth_token or not verify_auth_token(auth_token):
+        logger.warning("Unauthorized access attempt to delete unavailable proxies")
+        return RedirectResponse(url="/", status_code=302)
+
+    try:
+        logger.info(f"Checking and deleting unavailable proxies from {len(batch_request.proxies)} proxies")
+        proxy_service = get_proxy_check_service()
+
+        # 检测所有代理
+        results = await proxy_service.check_multiple_proxies(
+            batch_request.proxies,
+            use_cache=False,  # 不使用缓存，确保实时检测
+            max_concurrent=batch_request.max_concurrent
+        )
+
+        # 分离可用和不可用的代理
+        available_proxies = [r.proxy for r in results if r.is_available]
+        unavailable_proxies = [r.proxy for r in results if not r.is_available]
+
+        return {
+            "success": True,
+            "available_proxies": available_proxies,
+            "unavailable_proxies": unavailable_proxies,
+            "deleted_count": len(unavailable_proxies),
+            "remaining_count": len(available_proxies)
+        }
+    except Exception as e:
+        logger.error(f"Delete unavailable proxies failed: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Delete unavailable proxies failed: {str(e)}")
+
+
 # ==================== 提供商管理 API ====================
 
 @router.get("/providers")

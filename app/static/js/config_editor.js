@@ -225,6 +225,7 @@ document.addEventListener("DOMContentLoaded", function () {
   
   // Proxy Check Elements and Events
   const checkAllProxiesBtn = document.getElementById("checkAllProxiesBtn");
+  const deleteUnavailableProxiesBtn = document.getElementById("deleteUnavailableProxiesBtn");
   const proxyCheckModal = document.getElementById("proxyCheckModal");
   const closeProxyCheckModalBtn = document.getElementById("closeProxyCheckModalBtn");
   const closeProxyCheckBtn = document.getElementById("closeProxyCheckBtn");
@@ -236,11 +237,15 @@ document.addEventListener("DOMContentLoaded", function () {
       if (proxyBulkInput) proxyBulkInput.value = "";
     });
   }
-  
+
   if (checkAllProxiesBtn) {
     checkAllProxiesBtn.addEventListener("click", checkAllProxies);
   }
-  
+
+  if (deleteUnavailableProxiesBtn) {
+    deleteUnavailableProxiesBtn.addEventListener("click", deleteUnavailableProxies);
+  }
+
   if (closeProxyCheckModalBtn) {
     closeProxyCheckModalBtn.addEventListener("click", () => closeModal(proxyCheckModal));
   }
@@ -2874,3 +2879,79 @@ function updateProxyStatusInList(results) {
 }
 
 // -- End Proxy Check Functions --
+
+/**
+ * 删除所有不可用的代理
+ */
+async function deleteUnavailableProxies() {
+  const proxyContainer = document.getElementById("PROXIES_container");
+  if (!proxyContainer) return;
+
+  const proxyInputs = proxyContainer.querySelectorAll('.array-input');
+  const proxies = Array.from(proxyInputs)
+    .map(input => input.value.trim())
+    .filter(proxy => proxy.length > 0);
+
+  if (proxies.length === 0) {
+    showNotification("没有代理需要检测", "warning");
+    return;
+  }
+
+  // 确认操作
+  if (!confirm(`确定要检测并删除所有不可用的代理吗？\n当前共有 ${proxies.length} 个代理。`)) {
+    return;
+  }
+
+  showNotification("正在检测代理...", "info");
+
+  try {
+    const response = await fetch('/api/config/proxy/delete-unavailable', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        proxies: proxies,
+        use_cache: false,
+        max_concurrent: 5
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`请求失败: ${response.status}`);
+    }
+
+    const result = await response.json();
+
+    if (result.success) {
+      // 从 DOM 中删除不可用的代理
+      const unavailableSet = new Set(result.unavailable_proxies);
+      const proxyItems = proxyContainer.querySelectorAll(`.${ARRAY_ITEM_CLASS}`);
+
+      proxyItems.forEach(item => {
+        const input = item.querySelector('.array-input');
+        if (input && unavailableSet.has(input.value.trim())) {
+          item.remove();
+        }
+      });
+
+      // 显示结果
+      showNotification(
+        `检测完成！删除了 ${result.deleted_count} 个不可用代理，保留 ${result.remaining_count} 个可用代理`,
+        result.deleted_count > 0 ? "success" : "info"
+      );
+
+      // 如果有删除的代理，显示详细信息
+      if (result.deleted_count > 0) {
+        console.log("已删除的不可用代理:", result.unavailable_proxies);
+      }
+    } else {
+      throw new Error("操作失败");
+    }
+
+  } catch (error) {
+    console.error('删除不可用代理失败:', error);
+    showNotification(`操作失败: ${error.message}`, "error");
+  }
+}
+
